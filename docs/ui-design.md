@@ -12,7 +12,7 @@ The verified style match was Minimalism & Swiss Style, with spacious density and
 - One primary action: create a universe. Compare remains secondary.
 - Branch detail leads with its chart, two outcomes, and branching/editing actions. Scheduled events, assumptions, milestones, extra actions and the full financial breakdown are disclosed on demand.
 - Baseline cards lead with their totals. Individual income/expense/account lines, debts and investments remain available without filling the initial screen.
-- Ask Ping stays visible as a compact composer. Ctrl/Cmd+K opens it; Escape closes it. Opening focuses the input; closing returns focus to the toggle. Modal dialogs trap focus and restore the opener.
+- Ask Ping stays visible as a compact composer. Ctrl/Cmd+K focuses its input. Focusing or clicking the input does not expand anything or issue a request. Submitting shows the conversation inline, with the user message and an immediate loading indicator until the request resolves. Show conversation / Hide conversation control history without a dialog or overlay. Modal dialogs trap focus and restore the opener.
 - Failed requests retain the draft and show an inline error. Retrying replaces the pending user entry rather than duplicating it.
 
 ## Motion
@@ -26,3 +26,19 @@ The financial engine, Nemotron tool interface, profile and timeline persistence 
 A + action on each displayed branch opens Ping in branch mode for that universe. Child routes connect to their parent path. A child shows new or changed event markers, while inherited unchanged events stay on the parent route. Events at distinct months each receive a marker; same-month events share one popup. The underlying child simulation still includes its inherited event history. No saved universes or financial events are discarded by map filtering.
 
 A one-time workspace example migration adds Move to Chicago beneath the original New York chapter, preserving inherited events and adding explicitly estimated moving/rent/deposit events. It archives extra case-insensitive New York title matches without deleting their histories or descendant links. The marker persists with the workspace and prevents repeat insertion; the update applies to both local and synced workspaces. The underlying seed fixture remains unchanged.
+
+
+## Responsive behavior
+
+The responsive layer preserves the current theme and logo. The universe SVG scales uniformly to its available frame using its viewBox; the canvas has no internal scrolling or forced minimum diagram width. Map/List, branch selection, Compare paths, and New universe share one toolbar and wrap into two logical rows on phones. The list remains the initial view below 900px, with map available on demand.
+
+Other pages scroll within the workspace, so long baseline, settings, and branch details remain accessible. Cards stack at narrower widths; comparison tables scroll within their own container. Financial projection charts measure available width with ResizeObserver and simplify tick density on narrow screens. Branch menus use available vertical space. Mobile navigation reserves its own safe-area space, and a compact app bar retains home and help access.
+
+Chat includes visible history controls, 16px form text on phones, and an inline conversation panel capped to half the available viewport. VisualViewport updates resize the application frame for the on-screen keyboard, keeping the input in view without a fixed chat overlay. The mode dropdown is removed; the composer accepts natural-language messages with read-only universe context. No new intent-classification rules or backend inference changes are introduced in this UI pass; Nemotron routing changes are deferred to the next requested backend update. Reduced motion remains supported. Automated interaction checks cover narrow-screen navigation, closing chat with focus restoration, and keyboard viewport changes. Browser-based visual verification was unavailable in this environment.
+
+
+## Marker and responsive polish
+
+An extra filled circle at the end of each branch curve was nearly coincident with the Chicago move event. That decorative terminal dot is removed. Branch junctions use small hollow diamonds; actual financial events remain hollow circles, including hover/focus/selected states. Same-month events still share one marker, and neighboring dates remain separate. The Chicago move/rent and following-month refund are unchanged.
+
+The skill's verified touch-friendly and touch-spacing guidance informed larger navigation targets, more consistent control spacing, clear pressed states, keyboard-visible branch filters, and a mobile Settings entry. The map still scales to its frame without internal scrolling; chat remains inline and does not open on input focus. Chat uses a stable width between idle and conversation states, a viewport-aware minimum reading area, and temporarily frees mobile navigation space when the keyboard is detected. No inference behavior changed.

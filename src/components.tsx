@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -140,10 +140,23 @@ export function ProjectionChart({
 }) {
   const gradientId = useId().replaceAll(":", "");
   const [hover, setHover] = useState<number | null>(null);
-  const width = 840,
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [chartWidth, setChartWidth] = useState(840);
+  useEffect(() => {
+    const element = chartRef.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry?.contentRect.width > 0)
+        setChartWidth(Math.max(280, Math.round(entry.contentRect.width)));
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const compact = chartWidth < 520;
+  const width = chartWidth,
     height = 260,
-    left = 62,
-    right = 20,
+    left = compact ? 54 : 62,
+    right = compact ? 14 : 20,
     top = 22,
     bottom = 34;
   const values = series.flatMap((s) =>
@@ -164,7 +177,7 @@ export function ProjectionChart({
   const active = hover ?? Math.min(month, horizon);
   const row = series[0]?.rows[active];
   return (
-    <div className="chart-wrap">
+    <div className="chart-wrap" ref={chartRef}>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="projection-chart"
@@ -204,7 +217,7 @@ export function ProjectionChart({
                 y={y(tick) + 4}
                 textAnchor="end"
                 fill="var(--muted)"
-                fontSize="11"
+                fontSize={compact ? 12 : 11}
               >
                 {money(tick, true)}
               </text>
@@ -318,14 +331,17 @@ export function ProjectionChart({
             strokeWidth="2"
           />
         ))}
-        {[0, horizon / 4, horizon / 2, (horizon * 3) / 4, horizon].map((m) => (
+        {(compact
+          ? [0, horizon / 2, horizon]
+          : [0, horizon / 4, horizon / 2, (horizon * 3) / 4, horizon]
+        ).map((m) => (
           <text
             key={m}
             x={x(m)}
             y={height - 8}
             textAnchor="middle"
             fill="var(--muted)"
-            fontSize="11"
+            fontSize={compact ? 12 : 11}
           >
             {m === 0
               ? "Today"

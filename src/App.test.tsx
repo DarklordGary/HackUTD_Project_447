@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -43,6 +44,120 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 describe("application demo", () => {
+  it("keeps Settings available within mobile navigation", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(max-width: 900px)",
+    }));
+    render(<App />);
+    const navigation = screen.getByRole("navigation", {
+      name: "Main navigation",
+    });
+    fireEvent.click(
+      within(navigation).getByRole("button", { name: "Settings" }),
+    );
+    expect(screen.getByRole("main", { name: "Settings" })).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Profile & connections" }),
+    ).toBeTruthy();
+  });
+  it("shows the submitted message and loading inline until inference completes", async () => {
+    let finish: ((response: Response) => void) | undefined;
+    vi.mocked(fetch).mockImplementation(async (url: any) => {
+      if (url === "/api/status")
+        return { ok: true, json: async () => ({ ai: "Nemotron" }) } as Response;
+      return new Promise<Response>((resolve) => {
+        finish = resolve;
+      });
+    });
+    render(<App />);
+    const input = screen.getByLabelText("Your message to Ping");
+    fireEvent.focus(input);
+    expect(screen.queryByRole("log")).toBeNull();
+    expect(
+      vi.mocked(fetch).mock.calls.filter(([url]) => url !== "/api/status"),
+    ).toHaveLength(0);
+    fireEvent.change(input, { target: { value: "I moved to Chicago." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(
+      within(screen.getByRole("log")).getByText("I moved to Chicago."),
+    ).toBeTruthy();
+    expect(screen.getByText("Ping is thinking…")).toBeTruthy();
+    expect(
+      screen
+        .getByRole("region", { name: "Ask Ping" })
+        .getAttribute("aria-busy"),
+    ).toBe("true");
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Send message",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    await act(async () => {
+      finish!({
+        ok: true,
+        json: async () => ({
+          source: "Nemotron",
+          tools: [],
+          data: {
+            name: "Conversation",
+            description: "",
+            events: [],
+            assumptions: [],
+            answer: "Your update was received.",
+          },
+        }),
+      } as Response);
+    });
+    expect(await screen.findByText("Your update was received.")).toBeTruthy();
+    expect(screen.queryByText("Ping is thinking…")).toBeNull();
+    expect(
+      screen
+        .getByRole("region", { name: "Ask Ping" })
+        .getAttribute("aria-busy"),
+    ).toBe("false");
+  });
+  it("keeps input focus inline and offers conversation history on narrow screens", () => {
+    vi.stubGlobal("matchMedia", (query: string) => ({
+      matches: query === "(max-width: 900px)",
+    }));
+    render(<App />);
+    expect(screen.getByLabelText("Your timelines")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Map" }));
+    fireEvent.focus(screen.getByLabelText("Your message to Ping"));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("log")).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Show conversation" }));
+    expect(screen.getByRole("log")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Hide conversation" }));
+    expect(screen.queryByRole("log")).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Show conversation" }),
+    );
+  });
+
+  it("updates the inline chat and application height when the on-screen keyboard opens", () => {
+    const viewport = Object.assign(new EventTarget(), {
+      height: 640,
+      offsetTop: 0,
+    });
+    vi.stubGlobal("visualViewport", viewport);
+    render(<App />);
+    const chat = screen.getByRole("region", { name: "Ask Ping" });
+    expect(chat.style.getPropertyValue("--visual-height")).toBe("640px");
+    viewport.height = 320;
+    act(() => {
+      viewport.dispatchEvent(new Event("resize"));
+    });
+    expect(chat.style.getPropertyValue("--visual-height")).toBe("320px");
+    expect(
+      document.documentElement.style.getPropertyValue("--app-viewport-height"),
+    ).toBe("320px");
+    expect(screen.getByLabelText("Your message to Ping")).toBeTruthy();
+  });
   it("filters the map with branch checkboxes and remembers the choice without changing finances", () => {
     render(<App />);
     const original = localStorage.getItem(STORAGE_KEY);
@@ -79,20 +194,14 @@ describe("application demo", () => {
       screen.getByRole("button", { name: "Open Move to Chicago" }),
     ).toBeTruthy();
   });
-  it("opens Ping with the keyboard and restores focus when it closes", async () => {
+  it("focuses the normal input with the keyboard without opening a dialog", async () => {
     const user = userEvent.setup();
     render(<App />);
     await user.keyboard("{Control>}k{/Control}");
-    expect(
-      screen.getByRole("dialog", { name: "A chat with Ping" }),
-    ).toBeTruthy();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("log")).toBeNull();
     expect(document.activeElement).toBe(
       screen.getByLabelText("Your message to Ping"),
-    );
-    await user.keyboard("{Escape}");
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: "Expand chat" }),
     );
   });
   it("switches between the map and list without changing saved finances", () => {
@@ -229,7 +338,7 @@ describe("application demo", () => {
     render(<App />);
     const original = localStorage.getItem(STORAGE_KEY);
     fireEvent.click(screen.getByRole("button", { name: "New universe" }));
-    const dialog = screen.getByRole("dialog");
+    const dialog = screen.getByRole("region", { name: "Ask Ping" });
     fireEvent.change(within(dialog).getByLabelText("Your message to Ping"), {
       target: { value: "How much is in checking?" },
     });
@@ -276,10 +385,7 @@ describe("application demo", () => {
       screen.getByRole("button", { name: `Open ${target.name}` }),
     );
     fireEvent.click(screen.getByRole("button", { name: "Modify assumptions" }));
-    const dialog = screen.getByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText("You’re exploring"), {
-      target: { value: "modify" },
-    });
+    const dialog = screen.getByRole("region", { name: "Ask Ping" });
     fireEvent.change(within(dialog).getByLabelText("Your message to Ping"), {
       target: {
         value: "My employer will cover the move. Remove the moving cost.",
@@ -312,7 +418,7 @@ describe("application demo", () => {
     expect(screen.getByText("$30,400")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Timelines/ }));
     fireEvent.click(screen.getByRole("button", { name: "New universe" }));
-    let dialog = screen.getByRole("dialog");
+    let dialog = screen.getByRole("region", { name: "Ask Ping" });
     fireEvent.change(within(dialog).getByLabelText("Your message to Ping"), {
       target: { value: "Can I move to New York?" },
     });
@@ -333,10 +439,6 @@ describe("application demo", () => {
     expect(saved.universes).toHaveLength(5);
     const originalId = saved.universes[4].id;
     const originalEvents = JSON.stringify(saved.universes[4].events);
-    expect(
-      (within(dialog).getByLabelText("You’re exploring") as HTMLSelectElement)
-        .value,
-    ).toBe("branch");
     fireEvent.change(within(dialog).getByLabelText("Your message to Ping"), {
       target: { value: "What if I got a $90,000 job two months after moving?" },
     });
@@ -366,7 +468,7 @@ describe("application demo", () => {
     expect(screen.getByText("HOW YOUR POSSIBILITIES CONNECT")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /My Baseline/ }));
     fireEvent.click(screen.getByRole("button", { name: /Update reality/ }));
-    dialog = screen.getByRole("dialog");
+    dialog = screen.getByRole("region", { name: "Ask Ping" });
     fireEvent.change(within(dialog).getByLabelText("Your message to Ping"), {
       target: { value: "I got a new job paying $90,000." },
     });
@@ -402,7 +504,7 @@ describe("application demo", () => {
     render(<App />);
     const before = localStorage.getItem(STORAGE_KEY);
     fireEvent.click(screen.getByRole("button", { name: "New universe" }));
-    const dialog = screen.getByRole("dialog");
+    const dialog = screen.getByRole("region", { name: "Ask Ping" });
     fireEvent.change(within(dialog).getByLabelText("Your message to Ping"), {
       target: { value: "Make me rich" },
     });
@@ -424,7 +526,7 @@ describe("application demo", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await waitFor(() =>
       expect(
-        within(screen.getByRole("dialog")).getByText(
+        within(screen.getByRole("region", { name: "Ask Ping" })).getByText(
           /Demo interpretation of your scenario/,
         ),
       ).toBeTruthy(),

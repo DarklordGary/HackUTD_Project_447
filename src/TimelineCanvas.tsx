@@ -404,10 +404,7 @@ export default function TimelineCanvas({
               const dx = toX - fromX;
               const line = `M${fromX},${fromY} C${fromX + dx * 0.45},${fromY} ${fromX + dx * 0.55},${toY} ${toX},${toY} H${end}`;
               const labelX = toX + 12;
-              const labelLimit = Math.max(
-                10,
-                Math.floor((end - labelX) / 9),
-              );
+              const labelLimit = Math.max(10, Math.floor((end - labelX) / 9));
               const labelY = toY - 18;
               return (
                 <g
@@ -441,18 +438,19 @@ export default function TimelineCanvas({
                     className="universe-line-hit"
                     d={line}
                     aria-hidden="true"
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      onBranch?.(u);
+                    }}
                     onPointerEnter={() => activate(u.id)}
                     onMouseEnter={() => activate(u.id)}
                     onClick={() => onSelect(u)}
                   />
-                  <circle
-                    cx={fromX}
-                    cy={fromY}
-                    r="8"
-                    fill={color}
-                    pointerEvents="none"
+                  <path
+                    className="branch-junction"
+                    d={`M${fromX},${fromY - 6} L${fromX + 6},${fromY} L${fromX},${fromY + 6} L${fromX - 6},${fromY} Z`}
+                    aria-hidden="true"
                   />
-                  <circle cx={toX} cy={toY} r="8" fill={color} pointerEvents="none" />
                   <path
                     className="universe-continuation"
                     d={`M${end + 14},${laneY}H1170`}
@@ -642,8 +640,8 @@ export default function TimelineCanvas({
           )}
       </div>
       <p className="canvas-instruction">
-        Hover a branch to highlight it. Right-click a terminal node to branch.
-        Hover or tap an event for details.
+        Select a path to explore. Hollow dots are events; diamonds are branch
+        points.
       </p>
     </div>
   );

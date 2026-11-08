@@ -12,6 +12,7 @@ import TimelineCanvas, {
   selectMapUniverses,
 } from "./TimelineCanvas";
 import { seed, makeUniverse } from "./seed";
+import { upgradeWorkspace } from "./workspace-upgrade";
 
 afterEach(cleanup);
 
@@ -34,6 +35,37 @@ function setup() {
 }
 
 describe("simplified universe map", () => {
+  it("keeps Chicago event markers separate from decorative branch junctions", () => {
+    const state = upgradeWorkspace(seed());
+    const chicago = state.universes.find(
+      (universe) => universe.name === "Move to Chicago",
+    )!;
+    render(
+      <TimelineCanvas
+        universes={selectMapUniverses(state.universes)}
+        profile={state.profile}
+        horizon={36}
+        onSelect={vi.fn()}
+        onReality={vi.fn()}
+      />,
+    );
+    const lane = screen
+      .getByRole("button", { name: `Explore ${chicago.name}` })
+      .closest(".universe-lane")!;
+    expect(lane.querySelectorAll("circle")).toHaveLength(0);
+    expect(lane.querySelector(".branch-junction")).toBeTruthy();
+    const move = screen.getByRole("button", {
+      name: /Move to Chicago: Move from New York to Chicago/,
+    });
+    fireEvent.pointerEnter(move.querySelector(".marker-dot")!);
+    const popup = screen.getByRole("region", { name: "Event details" });
+    expect(within(popup).getByText("Chicago apartment")).toBeTruthy();
+    expect(
+      screen.getByRole("button", {
+        name: /Move to Chicago: Previous apartment deposit/,
+      }),
+    ).toBeTruthy();
+  });
   it("draws two children from their parent and supports several event dates per child", () => {
     const { profile, universes } = seed();
     const parent = universes[0];

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   Archive,
   ArrowDownToLine,
@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import { usePing } from "./usePing";
 import type { PingController } from "./usePing";
-import type { Mode, Universe } from "./types";
+import type { Universe } from "./types";
 import { assess, milestones, money, monthLabel, simulate } from "./engine";
 import { seed } from "./seed";
 import { upgradeWorkspace } from "./workspace-upgrade";
@@ -47,7 +47,7 @@ export default function App() {
   const [showArchived, setShowArchived] = useState(false);
   const [baselineChart, setBaselineChart] = useState(false);
   const [timelineView, setTimelineView] = useState<"map" | "list">(() =>
-    window.matchMedia?.("(max-width: 700px)").matches ? "list" : "map",
+    window.matchMedia?.("(max-width: 900px)").matches ? "list" : "map",
   );
   const [selectedBranches, setSelectedBranches] = useState<string[]>(() => {
     try {
@@ -225,15 +225,27 @@ export default function App() {
             <TrendingUp size={19} />
             <span>My Baseline</span>
           </button>
+          <button
+            className={`nav-item mobile-settings-nav ${page === "settings" ? "active" : ""}`}
+            aria-label="Settings"
+            aria-current={page === "settings" ? "page" : undefined}
+            onClick={() => {
+              ping.navigate("settings");
+              ping.setChat(false);
+            }}
+          >
+            <Settings2 size={19} />
+            <span>Settings</span>
+          </button>
         </nav>
         <div className="sidebar-bottom">
           <div className="profile-row">
             <div className="profile">
-            <div className="avatar">AM</div>
-            <div>
-              {profile.name}
-              <small>{profile.location}</small>
-            </div>
+              <div className="avatar">AM</div>
+              <div>
+                {profile.name}
+                <small>{profile.location}</small>
+              </div>
             </div>
             <button
               className={`profile-settings ${page === "settings" ? "active" : ""}`}
@@ -250,32 +262,33 @@ export default function App() {
         </div>
       </aside>
       <div className="main-shell">
+        <header className="mobile-appbar">
+          <button
+            className="mobile-home"
+            onClick={showTimelines}
+            aria-label="Ping home"
+          >
+            <img src="/ping.svg" alt="" />
+            <span>Ping</span>
+          </button>
+          <button
+            className="icon-button"
+            onClick={() => ping.setHelp(true)}
+            aria-label="How Ping works"
+          >
+            <HelpCircle size={20} />
+          </button>
+        </header>
         <main
           key={route}
           ref={mainRef}
           tabIndex={-1}
           aria-label={title}
-          className={`workspace-content ${page === "timelines" && !universe ? "canvas-workspace" : ""}`}
+          className={`workspace-content ${page === "timelines" && !universe && timelineView === "map" ? "canvas-workspace" : ""}`}
         >
           {page === "timelines" && !universe && (
             <section className="canvas-panel">
-              <div className="graph-toolbar">
-                <h1 className="sr-only">Your financial multiverse</h1>
-                <div className="toolbar-actions">
-                  <button
-                    className="secondary-button compare-action"
-                    onClick={() => ping.setPage("compare")}
-                  >
-                    <Layers size={15} /> Compare paths
-                  </button>
-                  <button
-                    className="primary-button"
-                    onClick={() => ping.openChat()}
-                  >
-                    <Plus size={16} /> New universe
-                  </button>
-                </div>
-              </div>
+              <h1 className="sr-only">Your financial multiverse</h1>
               <div className="canvas-topline">
                 <div
                   className="view-switch"
@@ -302,6 +315,20 @@ export default function App() {
                     onChange={setSelectedBranches}
                   />
                 )}
+                <div className="toolbar-actions">
+                  <button
+                    className="secondary-button compare-action"
+                    onClick={() => ping.setPage("compare")}
+                  >
+                    <Layers size={15} /> Compare paths
+                  </button>
+                  <button
+                    className="primary-button"
+                    onClick={() => ping.openChat()}
+                  >
+                    <Plus size={16} /> New universe
+                  </button>
+                </div>
               </div>
               {timelineView === "map" && (
                 <TimelineCanvas
@@ -1101,6 +1128,16 @@ function BranchPicker({
   onChange: (ids: string[]) => void;
 }) {
   const ref = useRef<HTMLDetailsElement>(null);
+  function sizeMenu() {
+    const element = ref.current;
+    const menu = element?.querySelector<HTMLElement>(".branch-options");
+    const summary = element?.querySelector("summary");
+    if (!element?.open || !menu || !summary) return;
+    const bottom =
+      element.closest(".workspace-content")?.getBoundingClientRect().bottom ??
+      window.innerHeight;
+    menu.style.maxHeight = `${Math.max(80, Math.min(420, Math.min(bottom, window.innerHeight) - summary.getBoundingClientRect().bottom - 16))}px`;
+  }
   useEffect(() => {
     const dismiss = (event: PointerEvent) => {
       if (event.target instanceof Node && !ref.current?.contains(event.target))
@@ -1114,13 +1151,15 @@ function BranchPicker({
     };
     document.addEventListener("pointerdown", dismiss);
     document.addEventListener("keydown", escape);
+    window.addEventListener("resize", sizeMenu);
     return () => {
       document.removeEventListener("pointerdown", dismiss);
       document.removeEventListener("keydown", escape);
+      window.removeEventListener("resize", sizeMenu);
     };
   }, []);
   return (
-    <details className="branch-picker" ref={ref}>
+    <details className="branch-picker" ref={ref} onToggle={sizeMenu}>
       <summary>
         <ListTree size={16} /> Branches (
         {universes.filter((u) => selected.includes(u.id)).length}){" "}
@@ -1173,6 +1212,34 @@ function FloatingComposer({ ping }: { ping: PingController }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
+  const [visualViewport, setVisualViewport] = useState<{
+    height: number;
+  } | null>(null);
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const update = () => {
+      setVisualViewport({ height: viewport.height });
+      document.documentElement.style.setProperty(
+        "--app-viewport-height",
+        `${viewport.height}px`,
+      );
+      document.documentElement.dataset.keyboardOpen = String(
+        window.innerHeight - viewport.height > 120 &&
+          (viewport.scale ?? 1) === 1,
+      );
+    };
+    update();
+    viewport.addEventListener("resize", update);
+    viewport.addEventListener("scroll", update);
+    return () => {
+      viewport.removeEventListener("resize", update);
+      viewport.removeEventListener("scroll", update);
+      document.documentElement.style.removeProperty("--app-viewport-height");
+      delete document.documentElement.dataset.keyboardOpen;
+    };
+  }, []);
+
   useEffect(() => {
     if (chat) inputRef.current?.focus({ preventScroll: true });
     else if (wasOpen.current) toggleRef.current?.focus({ preventScroll: true });
@@ -1183,64 +1250,47 @@ function FloatingComposer({ ping }: { ping: PingController }) {
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        ping.setChat((value) => !value);
+        inputRef.current?.focus({ preventScroll: true });
       }
     };
     window.addEventListener("keydown", shortcut);
     return () => window.removeEventListener("keydown", shortcut);
   }, [ping.setChat]);
-  const suggestions =
-    mode === "reality"
-      ? ["I got a new job paying $90,000.", "I received a $5,000 bonus."]
-      : universe && mode !== "create"
-        ? [
-            "What if I got a $90,000 job two months after moving?",
-            "What if rent was $2,400?",
-          ]
-        : ["Can I move to New York?", "What if I got a job paying $90,000?"];
+  const suggestions = [
+    "I got a new job paying $90,000.",
+    "What if I moved to Chicago?",
+  ];
   return (
     <section
       className={`floating-composer ${chat ? "expanded" : ""} ${ping.busy ? "is-thinking" : ""}`}
-      role={chat ? "dialog" : "region"}
-      aria-modal={chat ? false : undefined}
-      aria-label={chat ? "A chat with Ping" : "Ask Ping"}
+      role="region"
+      aria-label="Ask Ping"
+      aria-busy={ping.busy}
+      style={
+        visualViewport
+          ? ({
+              "--visual-height": `${visualViewport.height}px`,
+            } as CSSProperties)
+          : undefined
+      }
     >
-      <button
-        ref={toggleRef}
-        className="sr-only"
-        onClick={() => ping.setChat(!chat)}
-        aria-label={chat ? "Close chat" : "Expand chat"}
-        aria-expanded={chat}
-        aria-controls="ping-conversation"
-      />
       {chat && (
         <div className="composer-conversation" id="ping-conversation">
-          <div className="chat-mode">
-            <label htmlFor="chat-mode">Exploring</label>
-            <select
-              id="chat-mode"
-              aria-label="You’re exploring"
-              value={mode}
-              disabled={ping.busy}
-              onChange={(event) => ping.setMode(event.target.value as Mode)}
+          <div className="chat-toolbar">
+            <strong>Ask Ping</strong>
+            <button
+              type="button"
+              className="icon-button"
+              aria-label="Hide conversation"
+              onClick={() => ping.setChat(false)}
             >
-              <option value="create">A new universe</option>
-              {universe && (
-                <>
-                  <option value="branch">A branch of this timeline</option>
-                  <option value="modify">A change to this timeline</option>
-                </>
-              )}
-              <option value="reality">An update to my reality</option>
-            </select>
+              <ChevronDown size={20} />
+            </button>
           </div>
-          {universe && mode !== "create" && mode !== "reality" && (
+          {universe && (
             <div className="chat-context">
               <GitBranch size={15} />
               <span>{universe.name}</span>
-              <small>
-                {mode === "branch" ? "Original preserved" : "Editing this path"}
-              </small>
             </div>
           )}
           <div
@@ -1252,16 +1302,8 @@ function FloatingComposer({ ping }: { ping: PingController }) {
           >
             {!ping.thread.length && (
               <div className="welcome-message">
-                <h3>
-                  {mode === "reality"
-                    ? "What’s new in your life?"
-                    : "A little what-if. A new possibility."}
-                </h3>
-                <p>
-                  {mode === "reality"
-                    ? "Your update will reach every timeline."
-                    : "Tell me what you’re imagining, or start here."}
-                </p>
+                <h3>What's on your mind?</h3>
+                <p>Share an update or explore a possibility.</p>
                 <div className="chat-suggestions">
                   {suggestions.map((text) => (
                     <button
@@ -1291,7 +1333,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
                   <i />
                   <i />
                 </span>
-                <span>Thinking through this possibility…</span>
+                <span>Ping is thinking…</span>
               </div>
             )}
             {!!ping.toolSteps.length && !ping.busy && (
@@ -1368,6 +1410,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
         className="composer-form"
         onSubmit={(event) => {
           event.preventDefault();
+          if (!ping.input.trim() || ping.busy) return;
           ping.setChat(true);
           void ping.send();
         }}
@@ -1379,13 +1422,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
           aria-describedby={ping.requestError ? "ping-error" : undefined}
           value={ping.input}
           onChange={(event) => ping.setInput(event.target.value)}
-          placeholder={
-            mode === "reality"
-              ? "Tell me what changed…"
-              : universe && mode !== "create"
-                ? "What would you change about this path?"
-                : "What if I moved to New York?"
-          }
+          placeholder="Message Ping…"
           disabled={ping.busy}
         />
         <button
