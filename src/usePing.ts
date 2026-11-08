@@ -23,6 +23,7 @@ export function usePing() {
   const [mode, setMode] = useState<Mode>("create");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState("");
   const [requestError, setRequestError] = useState("");
   const [thread, setThread] = useState<Message[]>([]);
   const [toolSteps, setToolSteps] = useState<
@@ -119,7 +120,7 @@ export function usePing() {
     const prompt = text.trim();
     if (!prompt || busy) return;
     setRequestError("");
-    setInput("");
+    setPendingMessage(prompt);
     setBusy(true);
     const userMessage: Message = { id: id(), role: "user", text: prompt };
     const previous = thread.at(-1);
@@ -147,6 +148,7 @@ export function usePing() {
         );
       setAi(source);
       setToolSteps(tools);
+      setInput("");
       if (data.answer) {
         setThread([
           ...history,
@@ -246,6 +248,7 @@ export function usePing() {
       setInput(prompt);
     } finally {
       setBusy(false);
+      setPendingMessage("");
     }
   }
   function download() {
@@ -279,6 +282,7 @@ export function usePing() {
     input,
     setInput,
     busy,
+    pendingMessage,
     requestError,
     thread,
     setThread,

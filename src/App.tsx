@@ -1310,9 +1310,9 @@ function FloatingComposer({ ping }: { ping: PingController }) {
                 </div>
               </div>
             )}
-            {ping.busy && ping.thread.at(-1)?.role !== "user" && (
+            {ping.busy && (
               <div className="chat-message user pending-message">
-                <div>{ping.input || "Sending your message…"}</div>
+                <div>{ping.pendingMessage}</div>
               </div>
             )}
             {ping.thread.map((message) => (
@@ -1406,7 +1406,6 @@ function FloatingComposer({ ping }: { ping: PingController }) {
         onSubmit={(event) => {
           event.preventDefault();
           if (!ping.input.trim() || ping.busy) return;
-          ping.setChat(true);
           void ping.send();
         }}
       >
