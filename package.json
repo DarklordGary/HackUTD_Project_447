@@ -12,10 +12,12 @@
     "db:start": "node scripts/database.mjs start",
     "db:publish": "node scripts/database.mjs publish",
     "db:check": "tsc --project spacetimedb/tsconfig.json",
-    "test:db": "tsx scripts/verify-sync.ts"
+    "test:db": "tsx scripts/verify-sync.ts",
+    "nemotron:chat": "tsx scripts/nemotron-chat.ts"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
+    "openai": "^7.53.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "spacetimedb": "2.14.0",

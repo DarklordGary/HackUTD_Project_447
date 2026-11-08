@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assess, simulate } from "./engine";
 import { seed } from "./seed";
-import { interpretDemo } from "./interpreter";
+import { modelFixture } from "./model-fixtures.test-support";
 import { applyReality, mergeEvents } from "./state";
 describe("deterministic monthly simulation", () => {
   it("balances the first month to the cent, including debt interest and investment contributions", () => {
@@ -88,9 +88,9 @@ describe("full demo journey", () => {
     const s = seed();
     const ny = s.universes[0];
     const original = JSON.stringify(ny);
-    const created = interpretDemo("Can I move to New York?", "create");
+    const created = modelFixture("Can I move to New York?", "create");
     expect(created.events).toHaveLength(3);
-    const job = interpretDemo(
+    const job = modelFixture(
       "What if I got a $90,000 job two months after moving?",
       "branch",
       ny,
@@ -113,7 +113,7 @@ describe("full demo journey", () => {
     expect(assess(s.profile, ny).viable).toBe(false);
     expect(assess(s.profile, branch).viable).toBe(true);
     s.universes.push(branch);
-    const update = interpretDemo("I got a new job paying $90,000.", "reality");
+    const update = modelFixture("I got a new job paying $90,000.", "reality");
     const result = applyReality(s, update, "New job");
     expect(result.state.profile.annualSalary).toBe(90000);
     expect(s.profile.annualSalary).toBe(72000);
@@ -128,7 +128,7 @@ describe("full demo journey", () => {
   it("changes rent without dropping move costs or job assumptions", () => {
     const s = seed(),
       ny = s.universes[0];
-    const result = interpretDemo("What if rent was $2,100?", "modify", ny);
+    const result = modelFixture("What if rent was $2,100?", "modify", ny);
     const merged = mergeEvents(ny.events, result.events);
     expect(merged.filter((e) => e.kind === "rent")).toHaveLength(1);
     expect(merged.find((e) => e.kind === "rent")?.amount).toBe(2100);
@@ -138,7 +138,7 @@ describe("full demo journey", () => {
     const s = seed();
     const result = applyReality(
       s,
-      interpretDemo("I paid off my credit card.", "reality"),
+      modelFixture("I paid off my credit card.", "reality"),
       "paid card",
     );
     expect(result.state.profile.savings).toBe(16350);
@@ -148,18 +148,18 @@ describe("full demo journey", () => {
     );
   });
   it("requests clarification instead of making up unsupported changes", () => {
-    expect(interpretDemo("Make me rich", "create").clarification).toBeTruthy();
-    expect(interpretDemo("I got a job", "reality").clarification).toBeTruthy();
+    expect(modelFixture("Make me rich", "create").clarification).toBeTruthy();
+    expect(modelFixture("I got a job", "reality").clarification).toBeTruthy();
   });
   it("reschedules a referenced job while retaining its existing salary amount", () => {
     const ny = seed().universes[0];
-    const job = interpretDemo(
+    const job = modelFixture(
       "What if I got a $90,000 job two months after moving?",
       "branch",
       ny,
     );
     const branch = { ...ny, events: mergeEvents(ny.events, job.events) };
-    const immediate = interpretDemo(
+    const immediate = modelFixture(
       "What if I got the job immediately?",
       "modify",
       branch,

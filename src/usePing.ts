@@ -32,7 +32,7 @@ export function usePing() {
   const [compareIds, setCompareIds] = useState<string[]>(
     state.universes.slice(0, 2).map((u) => u.id),
   );
-  const [ai, setAi] = useState("Demo interpreter");
+  const [ai, setAi] = useState("Connecting to Nemotron...");
   const [storage, setStorage] = useState("Saved on this device");
   const [help, setHelp] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -161,7 +161,8 @@ export function usePing() {
         ]);
         return;
       }
-      if (mode === "reality") {
+      const operation = data.operation ?? mode;
+      if (operation === "reality") {
         const result = applyReality(state, data, prompt);
         setState(result.state);
         setThread([
@@ -174,40 +175,33 @@ export function usePing() {
         ]);
         setToast("Reality updated. Every universe recalculated.");
         setPage("updates");
+        setMode("reality");
       } else {
         if (!data.events.length && !data.explicitOperations)
           throw new Error(
             "No scenario events were returned. Try including a specific change.",
           );
         const existing =
-          mode !== "create"
+          operation !== "create"
             ? data.targetUniverseId
               ? state.universes.find((u) => u.id === data.targetUniverseId)
               : universe
             : undefined;
-        if (mode !== "create" && !existing)
+        if (operation !== "create" && !existing)
           throw new Error(
             "The target universe is no longer available. Please select it again.",
           );
         const next =
-          mode === "modify" && existing
+          operation === "modify" && existing
             ? structuredClone(existing)
             : makeUniverse(
                 data.name,
                 data.description,
                 [],
-                /new york/i.test(prompt)
-                  ? "city"
-                  : /car/i.test(prompt)
-                    ? "car"
-                    : /house|home/i.test(prompt)
-                      ? "home"
-                      : /school/i.test(prompt)
-                        ? "graduation"
-                        : (existing?.icon ?? "sparkles"),
+                existing?.icon ?? "sparkles",
                 colors[state.universes.length % colors.length],
               );
-        if (mode === "branch" && existing) next.parentId = existing.id;
+        if (operation === "branch" && existing) next.parentId = existing.id;
         next.events = mergeEvents(
           existing?.events ?? [],
           data.events,
@@ -225,19 +219,19 @@ export function usePing() {
         setState((prev) => ({
           ...prev,
           universes:
-            mode === "modify" && existing
+            operation === "modify" && existing
               ? prev.universes.map((u) => (u.id === existing.id ? next : u))
               : [...prev.universes, next],
         }));
-        if (existing && mode === "branch")
+        if (existing && operation === "branch")
           setCompareIds([existing.id, next.id]);
         setSelected(next.id);
         setPage("timelines");
         setMode("branch");
         setToast(
-          mode === "modify"
+          operation === "modify"
             ? "Universe updated"
-            : mode === "branch"
+            : operation === "branch"
               ? "A new path has branched off"
               : "A new universe is ready to explore",
         );

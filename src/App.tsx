@@ -951,7 +951,7 @@ export default function App() {
                 />
                 <SettingRow
                   title="Scenario reasoning"
-                  description="Live Nemotron uses financial tools when a server API key is configured."
+                  description="Nemotron selects financial tools for questions, life updates, and hypothetical timelines."
                   value={ping.ai}
                 />
                 <SettingRow
@@ -1210,7 +1210,6 @@ function BranchPicker({
 function FloatingComposer({ ping }: { ping: PingController }) {
   const { chat, universe, mode } = ping;
   const inputRef = useRef<HTMLInputElement>(null);
-  const toggleRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
   const [visualViewport, setVisualViewport] = useState<{
     height: number;
@@ -1242,7 +1241,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
 
   useEffect(() => {
     if (chat) inputRef.current?.focus({ preventScroll: true });
-    else if (wasOpen.current) toggleRef.current?.focus({ preventScroll: true });
+    else if (wasOpen.current) inputRef.current?.focus({ preventScroll: true });
     wasOpen.current = chat;
   }, [chat]);
   useEffect(() => {

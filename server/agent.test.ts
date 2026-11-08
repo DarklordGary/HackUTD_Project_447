@@ -24,6 +24,7 @@ const job = {
   estimated: false,
 };
 const scenario = {
+  operation: "branch",
   name: "NYC with a new career",
   description: "A new job two months after moving.",
   events: [job],
@@ -96,7 +97,9 @@ describe("financial tool dispatcher", () => {
     const { id: _id, ...event } = replacing;
     const preview = session.execute("simulate_scenario", {
       ...scenario,
-      events: [event],
+      operation: "modify",
+      events: [],
+      replacements: [event],
     }).output as any;
     expect(preview.events.find((e: any) => e.id === rent.id)).toMatchObject({
       label: "Completely renamed rent",
@@ -124,11 +127,12 @@ describe("financial tool dispatcher", () => {
     expect(() =>
       session.execute("simulate_scenario", {
         ...scenario,
-        events: [{ ...job, replaceEventId: "invented-id" }],
+        events: [],
+        replacements: [{ ...job, replaceEventId: "invented-id" }],
       }),
     ).toThrow(/Unknown event/);
   });
-  it("rejects arbitrary balance writes, invalid arguments, mode escalation, and invented preview IDs", () => {
+  it("rejects arbitrary balance writes, invalid arguments, and invented preview IDs", () => {
     const session = createToolSession(context());
     expect(() => session.execute("set_balance", { savings: 999999 })).toThrow(
       /Unknown tool/,
@@ -136,11 +140,6 @@ describe("financial tool dispatcher", () => {
     expect(() =>
       session.execute("get_financial_profile", { savings: 999999 }),
     ).toThrow();
-    expect(() =>
-      session.execute("preview_reality_update", {
-        changes: { annualSalary: 90000 },
-      }),
-    ).toThrow(/reality mode/);
     expect(() =>
       session.execute("apply_preview", {
         previewId: "fake",
@@ -170,7 +169,7 @@ describe("financial tool dispatcher", () => {
     expect(JSON.stringify(ctx)).toBe(original);
   });
   it("previews reality recalculations without mutating finances and preserves hypothetical choices", () => {
-    const ctx = context("reality"),
+    const ctx = context("branch"),
       before = JSON.stringify(ctx),
       session = createToolSession(ctx);
     const preview = session.execute("preview_reality_update", {
@@ -186,10 +185,12 @@ describe("financial tool dispatcher", () => {
       explanation: "The move is now viable.",
     }).final!;
     expect(final.reality?.annualSalary).toBe(90000);
+    expect(final.operation).toBe("reality");
     expect(JSON.stringify(ctx)).toBe(before);
-    expect(() => session.execute("simulate_scenario", scenario)).toThrow(
-      /preview_reality_update/,
-    );
+    session.execute("get_timeline", { timelineId: ctx.selectedUniverseId });
+    const hypothetical = session.execute("simulate_scenario", scenario)
+      .output as any;
+    expect(hypothetical.operation).toBe("branch");
   });
   it("returns the specifically chosen preview rather than the last alternative explored", () => {
     const ctx = context(),
@@ -216,7 +217,7 @@ describe("Nemotron function-calling protocol", () => {
         async () => new Response("", { status }),
       ) as unknown as typeof fetch;
       await expect(
-        runNemotronAgent(context(), { NVIDIA_API_KEY: "test-only" }, fetcher),
+        runNemotronAgent(context(), { NEMOTRON_API_KEY: "test-only" }, fetcher),
       ).rejects.toThrow(
         status === 403
           ? /authorization failed.*403/
@@ -235,12 +236,23 @@ describe("Nemotron function-calling protocol", () => {
       if (round === 1)
         return Response.json(
           completion(
+            "select_action",
+            {
+              action: "create_child_timeline",
+              timelineId: ctx.selectedUniverseId,
+            },
+            "intent",
+          ),
+        );
+      if (round === 2)
+        return Response.json(
+          completion(
             "get_timeline",
             { timelineId: ctx.selectedUniverseId },
             "read",
           ),
         );
-      if (round === 2) {
+      if (round === 3) {
         expect(request.messages.at(-1).tool_call_id).toBe("read");
         return Response.json(
           completion("simulate_scenario", scenario, "simulate"),
@@ -261,26 +273,50 @@ describe("Nemotron function-calling protocol", () => {
     }) as unknown as typeof fetch;
     const result = await runNemotronAgent(
       ctx,
-      { NVIDIA_API_KEY: "test-only" },
+      { NEMOTRON_API_KEY: "test-only" },
       fetcher,
     );
     expect(result.data.events).toEqual([job]);
     expect(result.data.explanation).toContain("viable");
     expect(result.tools.map((t) => t.tool)).toEqual([
+      "select_action",
       "get_timeline",
       "simulate_scenario",
       "apply_preview",
     ]);
-    expect(sent[0].tools).toEqual(toolDefinitions);
-    expect(sent[0].tool_choice).toBe("auto");
+    expect(sent[0].tools.map((tool: any) => tool.function.name)).toEqual([
+      "select_action",
+    ]);
+    expect(
+      sent[1].tools.some(
+        (tool: any) => tool.function.name === "simulate_scenario",
+      ),
+    ).toBe(true);
+    expect(
+      sent[1].tools.some(
+        (tool: any) => tool.function.name === "preview_reality_update",
+      ),
+    ).toBe(false);
+    expect(
+      sent[1].tools.some((tool: any) => tool.function.name === "apply_preview"),
+    ).toBe(false);
+    expect(sent[0].tool_choice).toBe("required");
     expect(sent[0].response_format).toBeUndefined();
   });
   it("feeds malformed/unknown calls back as tool errors so the model can recover", async () => {
     let round = 0;
     const fetcher = vi.fn(async (_url: any, init: any) => {
       round++;
-      const request = JSON.parse(init.body);
       if (round === 1)
+        return Response.json(
+          completion(
+            "select_action",
+            { action: "create_child_timeline" },
+            "intent",
+          ),
+        );
+      const request = JSON.parse(init.body);
+      if (round === 2)
         return Response.json(completion("delete_everything", {}));
       expect(JSON.parse(request.messages.at(-1).content)).toMatchObject({
         changed: false,
@@ -295,10 +331,10 @@ describe("Nemotron function-calling protocol", () => {
     }) as unknown as typeof fetch;
     const result = await runNemotronAgent(
       context(),
-      { NVIDIA_API_KEY: "test-only" },
+      { NEMOTRON_API_KEY: "test-only" },
       fetcher,
     );
-    expect(result.tools[0].status).toBe("error");
+    expect(result.tools[1].status).toBe("error");
     expect(result.data.clarification).toContain("Which timeline");
   });
   it("stops endless tool loops without applying any changes", async () => {
@@ -308,7 +344,7 @@ describe("Nemotron function-calling protocol", () => {
       Response.json(completion("get_financial_profile", {})),
     ) as unknown as typeof fetch;
     await expect(
-      runNemotronAgent(ctx, { NVIDIA_API_KEY: "test-only" }, fetcher),
+      runNemotronAgent(ctx, { NEMOTRON_API_KEY: "test-only" }, fetcher),
     ).rejects.toThrow(/limit/);
     expect(fetcher).toHaveBeenCalledTimes(8);
     expect(JSON.stringify(ctx)).toBe(original);
@@ -318,7 +354,7 @@ describe("Nemotron function-calling protocol", () => {
       async () => new Response("no", { status: 401 }),
     ) as unknown as typeof fetch;
     await expect(
-      runNemotronAgent(context(), { NVIDIA_API_KEY: "bad" }, fetcher),
+      runNemotronAgent(context(), { NEMOTRON_API_KEY: "bad" }, fetcher),
     ).rejects.toThrow(/401/);
   });
 });

@@ -11,12 +11,12 @@ npm install
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. With no environment configuration, the complete demo uses a clearly labeled deterministic scenario interpreter and browser localStorage. No login, account linking, or personal financial input is needed.
+Open **http://127.0.0.1:5173**. The seeded financial workspace uses browser localStorage, while chat uses the configured Brev-hosted Nemotron deployment. There is no phrase-based inference fallback. No login, account linking, or personal financial input is needed.
 
 ## Try the story
 
 1. From **Timelines**, choose **New universe** and ask **“Can I move to New York?”**, or type directly into the floating Ping composer.
-2. Send **“What if I got a $90,000 job two months after moving?”**. After creation, the chat defaults to branching the current universe; the original stays intact.
+2. Send **“What if I got a $90,000 job two months after moving?”**. Nemotron uses the current universe as context and chooses the appropriate operation; branches preserve their parents.
 3. Choose **Compare with original**, then use the month slider to compare their net worth, savings, income, cash flow, and debt.
 4. Open **My Baseline**, choose **Update reality** and send **“I got a new job paying $90,000.”**.
 5. **Reality updates** shows the before/after baseline chart and the effect on every universe. The original New York move changes from “Worth exploring” to “On track.”
@@ -25,33 +25,42 @@ Existing seeded universes are available immediately on the branching **Main Real
 
 The timeline-first layout follows the four supplied wireframes in `Downloads/hackutdui`: branching routes around Main Reality, sidebar navigation, financial baseline columns, a chart with an adjacent branch summary, and a floating AI composer. The engine, Nemotron tools and persistence remain shared through `src/usePing.ts`; canvas relationships are derived from persisted parent/event IDs rather than decorative sample paths.
 
-## Nemotron
+## Nemotron on Brev
 
-Copy `.env.example` to `.env.local`, set `NVIDIA_API_KEY`, then restart Vite. The API key stays on the Node server and is never included in the client build. The default model is `nvidia/nemotron-3.5-bolt-e4b`. `NVIDIA_MODEL` and `NVIDIA_API_URL` are configurable for another compatible Nemotron deployment. HTTP 401/403 is reported as an authorization failure; HTTP 410 indicates an unavailable model. Neither silently falls back to demo interpretation.
+Chat uses the official `openai` Node SDK against an OpenAI-compatible Nemotron server. Requests are made by the Node middleware, never directly from the browser. Copy `.env.example` to `.env.local` and restart Vite if it is already running:
 
-The Node middleware in `server/nemotron.ts` handles `/api/interpret` in development and `npm run preview`. Live requests go through the bounded function-calling agent in `server/agent.ts`. The model receives native NVIDIA-compatible `tools` definitions and chooses calls; the server validates their arguments, executes the tool, and sends a `role: tool` result back before the model chooses its next action. Live interpretation never passes through the demo's phrase rules.
+```dotenv
+NEMOTRON_BASE_URL=https://5000-19yyxh1ah.gobrev.dev/v1
+NEMOTRON_API_KEY=EMPTY
+NEMOTRON_MODEL=nemotron
+NEMOTRON_ENABLE_THINKING=false
+```
 
-Available tools:
+The API key is the literal placeholder `EMPTY` for this public deployment. No OpenAI key or hosted NVIDIA API key is needed. `NVIDIA_*` settings from the previous provider are no longer used. Do not prefix private configuration with `VITE_`.
 
-| Tool                             | Purpose                                                                       |
-| -------------------------------- | ----------------------------------------------------------------------------- |
-| `get_financial_profile`          | Read actual finances and baseline assumptions.                                |
-| `list_timelines`, `get_timeline` | Find relevant universes and inspect exact event IDs and schedules.            |
-| `get_monthly_projection`         | Get any month's engine-calculated financial breakdown.                        |
-| `simulate_scenario`              | Preview additions, replacements, removals and their calculated outcomes.      |
-| `compare_timelines`              | Inspect side-by-side calculated results.                                      |
-| `preview_reality_update`         | Recalculate actual changes across every universe without persisting yet.      |
-| `apply_preview`                  | Return a specific validated preview for the application to apply and persist. |
-| `answer_question`                | Answer conversationally without creating or modifying a universe.             |
-| `ask_clarification`              | Ask about ambiguity without changing finances.                                |
+For a standalone prompt, run:
 
-For example: read the NYC timeline → schedule an annual $90,000 salary two months after its move event → simulate → inspect the actual forecast → return the chosen preview and an explanation. The model can explore multiple previews before choosing one. Context includes the full existing financial profile, available timelines, selected universe and the last 20 conversational messages.
+```sh
+npm run nemotron:chat -- "Which is larger, 9.8 or 9.11?"
+npm run nemotron:chat -- --no-thinking "Reply with a short greeting."
+```
 
-Every tool has a strict Zod argument schema. Edits use `replaceEventId` and `removeEventIds`, independent of wording; unrelated events and assumptions are retained. The tools cannot write arbitrary balances, run code or access external systems. Reality tools are rejected outside reality mode. Intermediate previews are isolated snapshots, and only a successful final preview is applied through the app's existing state/persistence path. The UI rejects stale results if finances changed during reasoning. Chat exposes a collapsible list of tools used. Tool errors are returned to the model for correction, with an eight-round / 24-call / 90-second limit. Provider errors do not silently switch to demo mode. Calculated data always comes from the TypeScript engine; the model's natural-language explanation is generated from those results and still needs normal LLM accuracy review.
+`askNemotron(prompt, enableThinking, tools?)` in `server/nemotron-client.ts` prints the provider's `reasoning_content` before its main `content`, and reports `message.tool_calls` when present. Its default enables thinking; `--no-thinking` disables it. The Node SDK equivalent of Python's `extra_body` is the additional top-level request property `chat_template_kwargs: { enable_thinking: false }`, not a nested `extra_body` field. See the [official SDK Chat Completions reference](https://developers.openai.com/api/reference/typescript/resources/chat/subresources/completions/methods/create).
 
-Without an API key, an explicitly labeled demo interpreter supports NYC moves, salary changes, rent changes, car purchases, debt payments, bonuses, tuition, and spending reductions. It resolves a new job relative to a move, and can reuse an existing salary for “the job immediately.” Unsupported requests ask for clarification.
+Interactive chat defaults to thinking disabled for latency and token-budget control. Set `NEMOTRON_ENABLE_THINKING=true` to enable it for the application. An enabled-thinking branch probe exhausted the 4,096-token response budget; the same request completed with thinking disabled. Truncated output and provider/network errors are surfaced, with no silent fallback to another model or phrase rules. Raw provider reasoning is retained server-side for tool continuations and is not returned to the browser; the standalone helper prints it explicitly.
 
-Live hosted integration was verified with Nemotron 3.5 Bolt E4B: the models endpoint and chat completions returned HTTP 200, a checking-balance question used `get_financial_profile → answer_question`, and a salary branch used `get_timeline → simulate_scenario → apply_preview` with the new job correctly scheduled two months after the existing move. A simulated change must finish with `apply_preview` or clarification; it cannot silently end as a read-only answer. Automated tests cover the protocol, recovery paths, mode restrictions and calculations using mocked model responses. Your own deployment still needs a valid key with hosted-inference access. A static-only deployment does not include the API middleware; deploy with a Node/Vite preview server or port the middleware to your backend. See NVIDIA's [function-calling documentation](https://docs.nvidia.com/nim/large-language-models/1.15.0/function-calling.html).
+The bounded agent in `server/agent.ts` sends standard `{ type: "function", function: { name, description, parameters } }` definitions, inspects `message.tool_calls`, validates arguments with Zod, runs the tools, and returns each result as a `role: "tool"` message using its original call ID. It supports:
+
+- Profile, timeline and monthly projection reads, plus comparisons.
+- Scenario simulation with an explicit model-chosen `create`, `branch` or `modify` operation. New events are supplied separately from explicit existing-event replacements.
+- Reality-update previews for actual life changes.
+- Applying a specific calculated preview, answering without mutation, or asking a clarifying question.
+
+Nemotron determines intent from the conversation. A selected universe supplies context; legacy client mode hints do not restrict the model or choose the applied action. The returned operation controls the client's state update. Parents and unrelated events are preserved; adding a later move does not replace the earlier move. The financial engine still handles all calculations and validates event data. These are calculation/data constraints, not natural-language classification rules.
+
+Only a successful final preview is applied through the existing persistence path. Stale workspace results are rejected. Tool errors are returned to the model for correction, with eight rounds, 24 tool calls, and a 90-second total deadline. The client displays real loading while the request is pending. A static-only deployment does not include the API middleware: run a Node/Vite preview server or port the middleware to your backend.
+
+Live checks against the supplied Brev deployment verified simple chat, reasoning enabled/disabled, profile-reading tools, a salary life update, and a Chicago child branch. Tests also mock SDK requests, reasoning extraction/print ordering, tool-call continuation, invalid tools, and model-selected actions that differ from legacy interface modes.
 
 ## SpacetimeDB
 

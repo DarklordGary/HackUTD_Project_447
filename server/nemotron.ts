@@ -1,12 +1,11 @@
 import type { Plugin } from "vite";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { z } from "zod";
-import { interpretDemo } from "../src/interpreter";
 import { messageSchema, profileSchema, universeSchema } from "../src/contracts";
 import { runNemotronAgent } from "./agent";
 const requestSchema = z.object({
   prompt: z.string().min(1).max(2000),
-  mode: z.enum(["create", "modify", "branch", "reality"]),
+  mode: z.enum(["create", "modify", "branch", "reality"]).default("create"),
   universe: universeSchema.optional(),
   profile: profileSchema.optional(),
   universes: z.array(universeSchema).max(100).default([]),
@@ -24,9 +23,7 @@ export function scenarioApi(env: Record<string, string>): Plugin {
     if (req.url === "/api/status") {
       res.end(
         JSON.stringify({
-          ai: env.NVIDIA_API_KEY
-            ? "Nemotron · tool calling"
-            : "Demo interpreter",
+          ai: "Nemotron · tool calling",
         }),
       );
       return;
@@ -43,21 +40,6 @@ export function scenarioApi(env: Record<string, string>): Plugin {
         if (body.length > 1000000) throw new Error("Request too large");
       }
       const input = requestSchema.parse(JSON.parse(body));
-      if (!env.NVIDIA_API_KEY) {
-        res.end(
-          JSON.stringify({
-            data: interpretDemo(
-              input.prompt,
-              input.mode,
-              input.universe,
-              input.profile,
-            ),
-            source: "Demo interpreter",
-            tools: [],
-          }),
-        );
-        return;
-      }
       if (!input.profile)
         throw new Error(
           "Financial profile is required for live reasoning. Reload the app and try again.",

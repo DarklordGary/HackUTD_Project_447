@@ -10,7 +10,7 @@ import {
   within,
 } from "@testing-library/react";
 import App from "./App";
-import { interpretDemo } from "./interpreter";
+import { modelFixture } from "./model-fixtures.test-support";
 import userEvent from "@testing-library/user-event";
 import { STORAGE_KEY } from "./state";
 beforeEach(() => {
@@ -26,7 +26,7 @@ beforeEach(() => {
       return {
         ok: true,
         json: async () => ({
-          data: interpretDemo(
+          data: modelFixture(
             body.prompt,
             body.mode,
             body.universe,
@@ -44,6 +44,99 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 describe("application demo", () => {
+  it("applies Nemotron's reality operation even when the selected context is a branch", async () => {
+    render(<App />);
+    const before = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Open A New York chapter" }),
+    );
+    vi.mocked(fetch).mockImplementation(
+      async (_url: any, options?: RequestInit) => {
+        const request = JSON.parse(options!.body as string);
+        expect(request.mode).toBe("branch");
+        return {
+          ok: true,
+          json: async () => ({
+            source: "Nemotron",
+            tools: [],
+            data: {
+              name: "Reality update",
+              description: "",
+              events: [],
+              assumptions: [],
+              operation: "reality",
+              reality: { annualSalary: 90000 },
+              explanation: "Your real salary is updated.",
+            },
+          }),
+        } as Response;
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Your message to Ping"), {
+      target: { value: "My actual salary is now $90,000." },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText("Your real salary is updated.");
+    await waitFor(() =>
+      expect(
+        JSON.parse(localStorage.getItem(STORAGE_KEY)!).profile.annualSalary,
+      ).toBe(90000),
+    );
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).universes).toEqual(
+      before.universes,
+    );
+  });
+
+  it("applies Nemotron's branch operation from a reality-update conversation", async () => {
+    render(<App />);
+    const before = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    fireEvent.click(screen.getByRole("button", { name: "My Baseline" }));
+    fireEvent.click(screen.getByRole("button", { name: /Update reality/ }));
+    vi.mocked(fetch).mockImplementation(
+      async (_url: any, options?: RequestInit) => {
+        expect(JSON.parse(options!.body as string).mode).toBe("reality");
+        return {
+          ok: true,
+          json: async () => ({
+            source: "Nemotron",
+            tools: [],
+            data: {
+              name: "An alternative",
+              description: "A hypothetical job",
+              events: [
+                {
+                  kind: "salary",
+                  label: "New role",
+                  month: 7,
+                  amount: 90000,
+                  estimated: false,
+                },
+              ],
+              assumptions: [],
+              operation: "branch",
+              explicitOperations: true,
+              targetUniverseId: before.universes[0].id,
+              explanation: "Your alternative is ready.",
+            },
+          }),
+        } as Response;
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Your message to Ping"), {
+      target: { value: "What if I changed jobs in the New York timeline?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText("Your alternative is ready.");
+    await waitFor(() =>
+      expect(
+        JSON.parse(localStorage.getItem(STORAGE_KEY)!).universes,
+      ).toHaveLength(before.universes.length + 1),
+    );
+    const after = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(after.profile).toEqual(before.profile);
+    expect(after.universes.at(-1).parentId).toBe(before.universes[0].id);
+    expect(after.universes[0]).toEqual(before.universes[0]);
+  });
   it("keeps Settings available within mobile navigation", () => {
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: query === "(max-width: 900px)",
@@ -130,12 +223,12 @@ describe("application demo", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByRole("log")).toBeNull();
     expect(screen.queryByRole("combobox")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Show conversation" }));
+    fireEvent.click(screen.getByRole("button", { name: "New universe" }));
     expect(screen.getByRole("log")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Hide conversation" }));
     expect(screen.queryByRole("log")).toBeNull();
     expect(document.activeElement).toBe(
-      screen.getByRole("button", { name: "Show conversation" }),
+      screen.getByLabelText("Your message to Ping"),
     );
   });
 
@@ -243,7 +336,7 @@ describe("application demo", () => {
           json: async () => ({
             source: "Demo interpreter",
             tools: [],
-            data: interpretDemo(
+            data: modelFixture(
               input.prompt,
               input.mode,
               input.universe,
@@ -513,7 +606,9 @@ describe("application demo", () => {
     );
     await waitFor(() =>
       expect(
-        within(dialog).getByText(/I can model a move to New York/),
+        within(dialog).getByText(
+          /What financial goal would you like to explore/,
+        ),
       ).toBeTruthy(),
     );
     expect(localStorage.getItem(STORAGE_KEY)).toBe(before);

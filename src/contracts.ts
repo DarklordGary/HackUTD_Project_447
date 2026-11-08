@@ -38,6 +38,7 @@ export const interpretationSchema = z.object({
   events: z.array(eventSchema).max(20),
   assumptions: z.array(z.string().max(250)).max(20),
   reality: realitySchema.optional(),
+  operation: z.enum(["create", "branch", "modify", "reality"]).optional(),
   clarification: z.string().max(3000).optional(),
   answer: z.string().max(6000).optional(),
   explanation: z.string().max(6000).optional(),
