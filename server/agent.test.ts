@@ -50,6 +50,24 @@ function completion(name: string, args: unknown, id = "call-1") {
   };
 }
 describe("financial tool dispatcher", () => {
+  it("starts a standalone China alternative from baseline even with New York selected", () => {
+    const ctx = context();
+    ctx.prompt = "Can I move to China?";
+    const session = createToolSession(ctx);
+    const selection = session.execute("select_action", { action: "create_independent_timeline" }).output as any;
+    expect(selection.selectedTimelineId).toBeUndefined();
+    expect(selection.timeline).toBeNull();
+    const preview = session.execute("simulate_scenario", {
+      operation: "create", name: "Move to China", description: "An alternative move from baseline.",
+      events: [{ kind: "rent", month: 5, amount: 1000, label: "China rent estimate", estimated: true }],
+      assumptions: ["Estimated monthly rent in USD"],
+    }).output as any;
+    const result = session.execute("apply_preview", { previewId: preview.previewId, explanation: "Independent move." }).final!;
+    expect(result.operation).toBe("create");
+    expect(result.targetUniverseId).toBeUndefined();
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].label).toBe("China rent estimate");
+  });
   it("keeps the model-selected action stable and only exposes applicable preview tools", () => {
     const ctx = context();
     const session = createToolSession(ctx);

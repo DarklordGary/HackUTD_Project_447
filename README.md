@@ -62,6 +62,10 @@ Only a successful final preview is applied through the existing persistence path
 
 Live checks against the supplied Brev deployment verified simple chat, reasoning enabled/disabled, profile-reading tools, a salary life update, and a Chicago child branch. Tests also mock SDK requests, reasoning extraction/print ordering, tool-call continuation, invalid tools, and model-selected actions that differ from legacy interface modes.
 
+Every Nemotron HTTP response is appended to `logs/nemotron.jsonl` before SDK parsing or tool validation, including errors, malformed output and truncated completions. Each entry stores timestamps, a unique ID, provider request ID, HTTP status, the full request body (conversation, selected timeline context and prior tool results), and raw response body (including reasoning, tool calls and usage). This covers both the app and `npm run nemotron:chat`. Set server-side `NEMOTRON_LOG_PATH` to change the file location. Logs are excluded from Git; authorization headers are never recorded. A write failure stops the request with an error rather than applying an unsaved response. Existing responses from before logging was added cannot be recovered from this file.
+
+A standalone destination alternative defaults to an independent timeline from baseline finances. Continuing an existing move requires that intent in the current message or conversation; selecting New York alone does not request inheriting its events.
+
 ## SpacetimeDB
 
 The TypeScript module is in `spacetimedb/src/index.ts`; generated, typed SDK bindings are checked in at `src/module_bindings`. The module persists each seeded workspace as an atomic aggregate with an optimistic revision counter. SDK subscriptions deliver reactive changes across connections sharing the same anonymous identity. The SDK token is retained locally; there is no authentication UI.

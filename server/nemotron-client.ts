@@ -1,4 +1,5 @@
 import OpenAI from "openai";
+import { loggedNemotronFetch, NemotronLogError } from "./nemotron-log";
 import type {
   ChatCompletionMessage,
   ChatCompletionMessageParam,
@@ -33,7 +34,7 @@ export function createNemotronCompletion(
     apiKey: config.apiKey,
     timeout: 90000,
     maxRetries: 0,
-    fetch: fetcher,
+    fetch: loggedNemotronFetch(fetcher, env),
   });
   return async (
     messages: ChatCompletionMessageParam[],
@@ -75,6 +76,8 @@ export function createNemotronCompletion(
         );
       return message;
     } catch (error) {
+      if (error instanceof OpenAI.APIConnectionError && error.cause instanceof NemotronLogError)
+        throw error.cause;
       if (
         error instanceof OpenAI.APIConnectionTimeoutError ||
         options.signal?.aborted
