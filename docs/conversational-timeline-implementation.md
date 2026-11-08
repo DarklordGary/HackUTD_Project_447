@@ -17,7 +17,7 @@ The model selects intent, subject and parameters. Specialized move, revision, sa
 
 ## Financial/date rules
 
-The reserve check uses each projected month's recurring living costs, including the active rent, local expense adjustments and financed-purchase running costs. It checks opening-boundary liquidity too. One-time costs reduce liquidity without inflating the recurring reserve. A plan also needs nonnegative cash flow throughout the final six months. Summaries identify the first reserve failure with its month, liquid balance and reserve target.
+The reserve check uses each projected month's recurring living costs, including the active rent, local expense adjustments and financed-purchase running costs. It checks opening-boundary liquidity too. One-time costs reduce liquidity without inflating the recurring reserve. The internal compatibility boolean also checks nonnegative cash flow throughout the final six months. This is not exposed as a user verdict. New summaries identify factual liquid balances against the disclosed three-month modeled-expense benchmark and list actual negative cash-flow months.
 
 The projection remains anchored at the original opening snapshot. Calendar dates map deterministically to its monthly buckets. A November 2026 opening maps January 2027 to month 2. Same-month actual events use the current boundary; there is no daily proration. Actual dates before the opening snapshot are rejected with a correction message. Completed moves cannot be future dated; future moves remain hypothetical. The preview freezes its assessment date so midnight cannot change the applied transition.
 
@@ -32,8 +32,8 @@ The projection remains anchored at the original opening snapshot. Calendar dates
 The asserted live fixture uses a November 8, 2026 assessment date:
 
 1. NYC move in January 2027: $2,800 rent, $4,500 moving costs and $350 extra monthly expenses. First reserve failure is September 2027 (month 10): approximately $13,244 liquid against $13,290 required.
-2. $20,000 annual hypothetical raise and a three-month delay: a viable child, with the original unchanged.
-3. Actual $40,000 annual raise: actual salary becomes $112,000. The original NYC version crosses to viable; the child's salary prerequisite is fulfilled.
+2. $20,000 annual hypothetical raise and a three-month delay: a separate calculated alternative, with the original unchanged.
+3. Actual $40,000 annual raise: actual salary becomes $112,000. The original NYC projection changes; the child's salary prerequisite is fulfilled.
 4. The delayed version is explicitly identified as completed: only that child is realized, New York becomes reality, salary stays $112,000, and provisional costs are disclosed.
 5. Independent $250,000 boat with $10,000 down, 12% APR, 120 months and $1,500 monthly running costs: approximately $199,869 modeled debt and negative $2,950 monthly cash flow at month 36. Its December 2026 reserve failure is calculated from the updated New York reality. No hypothetical raise or second moving expense is inherited.
 
@@ -83,3 +83,9 @@ Actual-update previews also reject salary, rent, move, bonus or payoff changes a
 The Denver report was not a leaked chat session: logs show no previous history, selected universe or active goal. Nemo proposed Seattle's ID for the named Denver request, and the archive preview previously trusted that proposal. Archive targets now require `resolve_plan_reference` before `preview_archive_plan` is offered. A reference must be quoted from the current request, and lookup returns matching active plan names/destinations rather than accepting a guessed ID. Explicit full names take precedence over overlapping names; broad references matching multiple plans require clarification. Contextual pronouns require a real active goal and cannot override an explicitly named reference. Only a uniquely resolved ID can enter an archive preview. The archive phase has its own short prompt and no unrelated financial tools.
 
 `npm run test:plan-reference:live` passes the exact three-name fixture: Seattle Move, Denver Move and Seattle → Denver Move. In a fresh chat, "forget about denver" asks which Denver plan without applying any command. Selecting Seattle does not change that result. Explicitly naming either full Denver plan archives only that plan. The successful run starts at `plan-reference-1794129981554-1`; evidence is `logs/plan-reference-smoke.json`. The existing three boat-discard live checks also pass. The full suite passes 87 tests, and the production build passes. Existing saved archives are not silently rewritten; a mistakenly archived plan can be restored through the timeline's existing archive controls.
+
+## Timeline result presentation update
+
+Phases 1 and 2 of [timeline-results-plan.md](timeline-results-plan.md) are implemented. New UI, deterministic summaries, notifications and forecast payloads present numeric facts without categorical assessments. Internal reserve/viable calculations and optional stored impact snapshots remain compatible. Historical saved messages/notices are not rewritten. No SpacetimeDB schema or migration change was required.
+
+Current offline verification: 106 tests across 11 files, production build and database type check pass. Financial numerical assertions remain unchanged. New tests cover minimum-liquidity boundaries/ties, fixed horizon versus selected-month deltas, keyboard/slider/shortcut/jump synchronization, complete grouped events, missing-source routing, archived date alignment and archived model tool projections. Existing lifecycle/salary fulfillment and workspace upgrade tests pass. Live model/provider and live database integration suites were not rerun for this presentation change; their earlier results above are historical.

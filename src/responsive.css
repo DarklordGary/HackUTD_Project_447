@@ -947,3 +947,33 @@ body,
 @media (prefers-reduced-motion: reduce) {
   .universe-lane.is-new .universe-line { animation: none; stroke-dashoffset: 0; }
 }
+
+/* Timeline observations follow the existing paper, ink and sage visual system. */
+.horizon-outcomes { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 24px; padding: 24px; margin-bottom: 24px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+.horizon-outcomes > div, .liquidity-observation > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.horizon-outcomes h2 { font-size: 18px; margin: 0; }
+.horizon-outcomes strong { font-size: clamp(24px, 2.5vw, 32px); font-weight: 500; }
+.horizon-outcomes small, .liquidity-observation small, .breakdown-grid small, .snapshot-note, .essential-inputs small { color: var(--muted); font-size: 12px; line-height: 1.6; }
+.snapshot-note { margin: 0 0 20px; }
+.lifecycle-text { color: var(--muted); font-size: 14px; }
+.liquidity-observation { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; margin: 0 24px 20px; border-block: 1px solid var(--line); font-size: 13px; }
+.month-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 24px 0; }
+.month-shortcuts button { min-height: 44px; padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; color: var(--muted); }
+.month-shortcuts button[aria-pressed="true"] { background: var(--primary); color: white; }
+.essential-inputs { padding-block: 16px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.65; overflow-wrap: anywhere; }
+.essential-inputs h3 { font-size: 14px; }
+.event-month-group { width: 100%; min-width: 0; }
+.event-month-group > summary, .chart-all-events > summary { padding-block: 12px; cursor: pointer; font-size: 13px; }
+.chart-all-events { margin: 0 24px 12px; font-size: 13px; line-height: 1.6; }
+.chart-all-events li, .event-copy, .detail-page-heading h1 { overflow-wrap: anywhere; }
+.comparison-table th small, .breakdown-grid small { display: block; font-weight: 400; }
+.monthly-details > p { font-size: 12px; line-height: 1.6; color: var(--muted); }
+.projection-chart:focus-visible, .chart-event:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+@media (max-width: 768px) {
+  .horizon-outcomes { grid-template-columns: 1fr 1fr; gap: 20px; padding: 20px; }
+  .horizon-outcomes > div:first-child { grid-column: 1 / -1; }
+  .liquidity-observation { margin-inline: 16px; padding: 16px 0; flex-wrap: wrap; }
+}
+@media (max-width: 360px) { .horizon-outcomes { grid-template-columns: 1fr; } }
+
+.detail-page-heading .parent-relationship { font-size: 13px; margin-top: 8px; color: var(--muted); }

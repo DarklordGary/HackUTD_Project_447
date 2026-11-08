@@ -161,8 +161,9 @@ export function usePing() {
         );
       setAi(source);
       setToolSteps(tools);
+      const clarificationFor = data.clarification ? history.at(-1)?.clarificationFor ?? prompt : undefined;
       if (data.answer || data.clarification) {
-        const messages: Message[] = [...conversation, { id: id(), role: "assistant", text: data.answer ?? data.clarification! }];
+        const messages: Message[] = [...conversation, { id: id(), role: "assistant", text: data.answer ?? data.clarification!, clarificationFor }];
         setState(prev => ({ ...prev, conversation: messages.slice(-20) }));
       }
       if (data.answer) {
@@ -175,7 +176,7 @@ export function usePing() {
       if (data.clarification) {
         setThread([
           ...conversation,
-          { id: id(), role: "assistant", text: data.clarification },
+          { id: id(), role: "assistant", text: data.clarification, clarificationFor },
         ]);
         return;
       }

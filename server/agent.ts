@@ -1,3 +1,4 @@
+import { minimumLiquidity } from "../src/results";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
 import { createNemotronCompletion } from "./nemotron-client";
 import { z } from "zod";
@@ -87,10 +88,11 @@ const changes = {
       "Exact existing assumptions to supersede. All others are retained.",
     ),
 };
+const moveScenarioSchema = z.object({ destination: z.string().min(1).max(100), effectiveDate: z.iso.date().describe("Calendar date of the hypothetical move, e.g. 2027-01-01. Use the user date; the engine converts it to a month index."), rent: z.number().nonnegative().max(100000), movingCost: z.number().nonnegative().max(1000000), monthlyLivingExpenses: z.number().nonnegative().max(100000).describe("Absolute monthly destination budget in USD for utilities, food, transport, healthcare and other day-to-day spending; excludes rent and ongoing obligations. Not an additive adjustment."), costAssumptions: z.array(z.string().min(1).max(250)).min(1).max(10).describe("Disclose assumed city, household/lifestyle, estimate basis, and currency conversion if applicable; do not claim live research without a source."), name: z.string().min(1).max(70) }).strict();
 const tools = {
   select_action: {
     description:
-      "Choose what the CURRENT user message asks. archive_plan: stop exploring/discard/forget an existing hypothetical plan, preserving its history and all actual finances. It is plan management, not a new purchase or a salary update. realize_plan: user ACTUALLY COMPLETED a planned move, e.g. I have moved to New York; this is REQUIRED for a completed move and preserves existing actual salary. update_real_life: an actual fact, correction, or change to ANY profile field (including zero liquid assets), even when a hypothetical timeline is selected. create_alternative_from_reality: revise a plan before its original events happen (such as raise plus delaying the first move); create a separate path from Main Reality, using timelineId as the plan to revise, preserving the original. create_child_timeline: continue AFTER an existing hypothetical event, retaining that event on the path (such as a job two months after moving). create_independent_timeline: a standalone alternative starting from real baseline finances, including a different destination without a request to inherit the selected move. Selection alone does not request inheritance. edit_existing_timeline: explicitly correct the selected hypothetical itself. answer_question: no changes requested. ask_clarification: intent is ambiguous. Return the parent timeline ID for a child, not for an independent future.",
+      "Choose what the CURRENT user message asks. archive_plan: stop exploring/discard/forget an existing hypothetical plan, preserving its history and all actual finances. It is plan management, not a new purchase or a salary update. realize_plan: user ACTUALLY COMPLETED a planned move, e.g. I have moved to New York; this is REQUIRED for a completed move and preserves existing actual salary. update_real_life: an actual fact, correction, or change to ANY profile field (including zero liquid assets), even when a hypothetical timeline is selected. create_alternative_from_reality: revise a plan before its original events happen (such as raise plus delaying the first move); create a separate path from Main Reality, using timelineId as the plan to revise, preserving the original. create_child_timeline: continue AFTER an existing hypothetical event, retaining that event on the path (such as a job two months after moving, or moving FROM NY TO Denver after a hypothetical NY move). A named hypothetical departure city or AFTER an existing move explicitly requests inheritance. create_independent_timeline: a standalone alternative starting from real baseline finances, including a different destination without a request to inherit the selected move. Selection alone does not request inheritance. edit_existing_timeline: explicitly correct the selected hypothetical itself. answer_question: no changes requested. ask_clarification: intent is ambiguous. Return the parent timeline ID for a child, not for an independent future.",
     schema: z
       .object({
         salaryMeaning: z.enum(["annual_increase", "annual_total", "percentage_increase", "none", "unclear"]).optional().describe("Meaning of pay in the CURRENT message: another $15k or went up BY $8k is annual_increase; a salary OF $95k is annual_total; a percentage raise is percentage_increase; annual_total for salary of ZERO / no income / unemployed; none only if no pay fact is stated."),
@@ -98,6 +100,7 @@ const tools = {
         reportedAs: z.enum(["actual", "hypothetical", "plan_management", "read_only", "unclear"]).optional().describe("How the CURRENT user presents this change, independently of previous what-ifs. A change that actually happened is actual even in an ongoing hypothetical conversation."),
         requestedChanges: z.array(z.enum(["salary", "move_timing", "move", "purchase", "rent", "bonus", "debt_payoff", "plan_status", "profile", "other"])).max(8).optional().describe("All changes explicitly requested in THIS message. A salary of 0 or no income requires salary, even alongside other profile updates. Example raise and postpone relocation includes salary AND move_timing. Do not repeat changes from earlier turns."),
         profileFields: z.array(z.enum([...Object.keys(profileCorrectionSchema.shape), "liquidAssets", "annualSalary", "rent"])).optional().describe("For actual profile facts list EVERY exact property to amend. E.g. salary 0, bills 200 and variable 75 => [annualSalary,recurring,variable]. Zero liquid assets => [liquidAssets]. Savings APR is savingsRate, NOT savings (cash balance). Investment return is investmentReturn, NOT investments (portfolio balance). Savings APR 4%, investments $500 and contribute $0 => [savingsRate,investments,contribution]. This is the completeness checklist for the update."),
+        departureCity: z.string().min(1).max(100).optional().describe("For create_child_timeline with scenarioKind=move: identify the departure/anchor city from the request OR resolve there/that move using the active plan and conversation, e.g. ny for 'from ny to denver' or '2 years after I move to ny'. The parent must actually contain a move TO that city, not merely mention it in its name. NY/NYC/New York are aliases."),
         referenceSource: z.enum(["active_goal", "explicit_plan"]).optional().describe("For realization use active_goal for the discussed/current goal (default). Use explicit_plan ONLY when the current user explicitly identifies a DIFFERENT plan by exact ID/name."),
         scenarioKind: z.enum(["move", "purchase", "general"]).optional().describe("Subject is the change being requested NOW: move only for changing the relocation itself; purchase for a purchase; general for salary/job changes or questions, including a job AFTER a hypothetical move. Mentioning Seattle as context does not make a job change a move revision. Do not copy the subject from history."),
         action: z.enum([
@@ -156,7 +159,15 @@ const tools = {
   },
   preview_move_scenario: {
     description: "PREFERRED for exploring a new hypothetical move. Creates one linked group: rent is recurring, movingCost is one-time, monthlyLivingExpenses REPLACES uploaded recurring and variable spending with the destination budget (excluding rent, ongoing obligations, debt payments and investment contributions). Supply destination-specific amounts in USD and disclose city, budget basis and any currency conversion assumptions. Never reuse uploaded home living expenses as destination costs. For rescheduling an existing move use preview_plan_revision instead.",
-    schema: z.object({ destination: z.string().min(1).max(100), effectiveDate: z.iso.date().describe("Calendar date of the hypothetical move, e.g. 2027-01-01. Use the user date; the engine converts it to a month index."), rent: z.number().nonnegative().max(100000), movingCost: z.number().nonnegative().max(1000000), monthlyLivingExpenses: z.number().nonnegative().max(100000).describe("Absolute monthly destination budget in USD for utilities, food, transport, healthcare and other day-to-day spending; excludes rent and ongoing obligations. Not an additive adjustment."), costAssumptions: z.array(z.string().min(1).max(250)).min(1).max(10).describe("Disclose assumed city, household/lifestyle, estimate basis, and currency conversion if applicable; do not claim live research without a source."), name: z.string().min(1).max(70) }).strict(),
+    schema: moveScenarioSchema,
+  },
+  preview_followup_move: {
+    description: "Continue an existing hypothetical path with a SECOND move, preserving the first move and all its costs. Use the original move rent event ID and monthsAfter; the engine computes the date relative to that move, not today. Convert years to months. If no interval was given, disclose an assumed interval in costAssumptions or clarify. Never use this to delay the first move.",
+    schema: moveScenarioSchema.omit({ effectiveDate: true }).extend({
+      timelineId: z.string().min(1).max(100),
+      referenceEventId: z.string().min(1).max(100),
+      monthsAfter: z.number().int().min(1).max(35),
+    }).strict(),
   },
   preview_plan_revision: {
     description: "PREFERRED for a connected alternative that delays an existing move and/or changes a salary assumption. Pass only the group to reschedule and salary semantics; this tool preserves all other events and never adds a duplicate move. Use for 'raise of $20,000 and waited 3 months before moving'.",
@@ -263,14 +274,18 @@ function forecast(profile: Profile, timeline?: Universe) {
     source: "deterministic TypeScript financial engine",
     horizonMonths: 36,
     checkpoints: [0, 1, 12, 24, 36].map((m) => rows[m]),
-    minimumLiquidFunds: Math.min(...rows.slice(1).map((r) => r.liquid)),
+    minimumLiquidFunds: minimumLiquidity(rows).liquid,
+    minimumLiquidityMonth: minimumLiquidity(rows).month,
+    minimumLiquidityDate: minimumLiquidity(rows).date,
+    snapshotStartDate: (timeline?.finalProfile ?? profile).startDate,
+    historicalSnapshot: !!timeline?.finalProfile,
     milestones: milestones(rows),
     firstReserveShortfall: outlook?.firstShortfall,
+    shortfallBenchmark: outlook?.shortfallReserve,
+    reserveBenchmarkDescription: "Three months of modeled living expenses; a comparison benchmark, not a requirement or certification.",
     assetValue: "Purchased boat/vehicle asset value and depreciation are excluded from net worth.",
     ...(outlook
       ? {
-          viable: outlook.viable,
-          status: outlook.status,
           reserveTarget: outlook.reserve,
         }
       : {}),
@@ -332,15 +347,27 @@ export function createToolSession(context: AgentContext) {
           throw new Error(
             "An independent timeline starts from Main Reality. Call select_action again with action=create_independent_timeline and OMIT timelineId. Main Reality has no timeline ID.",
           );
-        const targetId = operation === "create" || operation === "archive" || action.action === "update_real_life"
+        let targetId = operation === "create" || operation === "archive" || action.action === "update_real_life"
           ? undefined
           : action.action === "realize_plan" && snapshot.activeGoalId && action.referenceSource !== "explicit_plan"
-            ? snapshot.activeGoalId : action.timelineId ?? snapshot.selectedUniverseId;
-        const target = targetId ? timeline(targetId) : undefined;
+            ? snapshot.activeGoalId : action.timelineId ?? snapshot.activeGoalId ?? snapshot.selectedUniverseId;
+        let target = targetId ? timeline(targetId) : undefined;
         if (["branch", "modify"].includes(operation) && !target)
           throw new Error(
             "Select the parent timeline ID, or choose create_independent_timeline.",
           );
+        if (action.action === "create_child_timeline" && action.scenarioKind === "move" && action.departureCity) {
+          const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+          const canonical = (value: string) => normalize(value).replace(/\b(?:new york city|nyc|ny)\b/g, "new york");
+          const matches = (u: Universe) => !u.archived && u.events.some(e => e.kind === "rent" && e.destination && !e.fulfilledBy &&
+            (` ${canonical(e.destination)} `).includes(` ${canonical(action.departureCity!)} `));
+          if (!target || !matches(target)) {
+            const candidates = snapshot.universes.filter(matches);
+            if (candidates.length !== 1) throw new Error(`The selected parent does not contain a move to ${action.departureCity}. Choose by saved destinations, not names. Matching parents: ${JSON.stringify(candidates.map(u => ({ id: u.id, name: u.name })))}. If several paths match, clarify which path.`);
+            // A uniquely named departure resolves the parent even when a stale active plan has a misleading title.
+            target = candidates[0]; targetId = target.id;
+          }
+        }
         selectedAction = { operation, timelineId: targetId, action: action.action, scenarioKind: action.scenarioKind ?? "general", referenceSource: action.referenceSource, requestedChanges: action.requestedChanges, profileFields: action.profileFields, salaryMeaning: action.salaryMeaning, effectiveTiming: action.effectiveTiming };
         readFinancialData = true;
         if (targetId) observed.add(targetId);
@@ -355,6 +382,8 @@ export function createToolSession(context: AgentContext) {
               operation === "archive" ? "resolve_plan_reference" : operation === "reality"
                 ? action.action === "realize_plan" ? "preview_move_realization" : action.requestedChanges?.includes("profile") ? "preview_reality_update (only fields explicitly changed by currentRequest; omit unchanged salary and all other unchanged facts)" : "preview_salary_change (for raise) or preview_reality_update (other actual facts)"
                 : action.action === "create_alternative_from_reality" ? "preview_plan_revision"
+                : action.action === "create_child_timeline" && action.scenarioKind === "move" ? "preview_followup_move"
+                : action.scenarioKind === "move" && ["create", "modify"].includes(operation) ? "preview_move_scenario"
                 : ["create", "branch", "modify"].includes(operation)
                   ? "simulate_scenario"
                   : operation === "answer"
@@ -362,6 +391,13 @@ export function createToolSession(context: AgentContext) {
                     : "ask_clarification",
             instruction:
               operation === "archive" ? "Resolve the exact named reference from the current message before any archive preview. A proposed ID from select_action has not been accepted as a resolved target. If several plans match, ask which one; do not choose the first or use an unrelated active plan." : "The user has already requested this action. Use its next tool; do not ask for confirmation or for existing data/IDs provided here. Preserve all other finances unless the user changed them.",
+            ...(action.action === "create_child_timeline" && action.scenarioKind === "move" ? {
+              previousRequest: snapshot.history.filter(m => m.role === "user").at(-1)?.text,
+              previousProposalMoves: snapshot.universes.find(u => u.id === snapshot.activeGoalId)?.events
+                .filter(e => e.kind === "rent" && e.destination && !e.fulfilledBy)
+                .map(e => ({ destination: e.destination, month: e.month })),
+              followupMoveInstruction: "Parent events identify the DEPARTURE/anchor city. The new DESTINATION is from currentRequest, or the previous request when this message only supplies timing. Do not repeat the anchor city as the new destination.",
+            } : {}),
             selectedTimelineId: targetId,
             profile: snapshot.profile,
             timeline: target
@@ -389,8 +425,8 @@ export function createToolSession(context: AgentContext) {
               annualInvestmentReturn: snapshot.profile.investmentReturn,
               savingsAPR: snapshot.profile.savingsRate,
               inflation: "Not modeled",
-              viabilityRule:
-                "Liquid funds above 3 months of current living expenses and nonnegative cash flow in the final 6 months.",
+              reserveBenchmark:
+                "Three months of modeled living expenses, for factual comparison only; not a requirement or certification.",
             },
           },
         };
@@ -432,7 +468,9 @@ export function createToolSession(context: AgentContext) {
           output: {
             timelineId: found?.id ?? "current",
             name: found?.name ?? "Current path",
-            projection: simulate(snapshot.profile, found?.events)[month],
+            projection: simulate(found?.finalProfile ?? snapshot.profile, found?.events)[month],
+            snapshotStartDate: (found?.finalProfile ?? snapshot.profile).startDate,
+            historicalSnapshot: !!found?.finalProfile,
           },
         };
       }
@@ -447,7 +485,9 @@ export function createToolSession(context: AgentContext) {
           return {
             id,
             name: found?.name ?? "Current path",
-            projection: simulate(snapshot.profile, found?.events)[month],
+            projection: simulate(found?.finalProfile ?? snapshot.profile, found?.events)[month],
+            snapshotStartDate: (found?.finalProfile ?? snapshot.profile).startDate,
+            historicalSnapshot: !!found?.finalProfile,
           };
         });
         readFinancialData = true;
@@ -473,6 +513,25 @@ export function createToolSession(context: AgentContext) {
           events: a.paymentMethod === "loan" ? [{ kind: "financed-purchase", label: a.name, month: a.month, amount: a.price, estimated: true,
             financing: { downPayment: a.downPayment!, apr: a.apr!, termMonths: a.termMonths!, runningCosts: a.runningCosts } }]
             : [{ kind: "expense", label: a.name, month: a.month, amount: a.price, estimated: true }, { kind: "monthly-expense", label: "Purchase running costs", month: a.month, amount: a.runningCosts, estimated: true }],
+        });
+      }
+      case "preview_followup_move": {
+        const { timelineId, referenceEventId, monthsAfter, ...move } = args as z.infer<typeof tools.preview_followup_move.schema>;
+        if (selectedAction?.action !== "create_child_timeline" || selectedAction.timelineId !== timelineId)
+          throw new Error("A follow-up move must continue the selected parent timeline.");
+        const reference = timeline(timelineId).events.find(e => e.id === referenceEventId && e.kind === "rent" && e.groupId && !e.fulfilledBy);
+        if (!reference) throw new Error("Choose the exact unfulfilled rent event ID of the original move from the selected timeline.");
+        const normalizeCity = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().replace(/\b(?:new york city|nyc|ny)\b/g, "new york");
+        const departure = normalizeCity(reference.destination ?? "");
+        const destination = normalizeCity(move.destination);
+        if (departure && (departure.includes(destination) || destination.includes(departure)))
+          throw new Error("The second move must go to a different destination from the anchor move. For a timing-only follow-up, keep the destination from the previous user request (e.g. Denver after NY), not the anchor city (NY). Reuse the original anchor event and requested interval.");
+        const month = reference.month + monthsAfter;
+        if (month > 36) throw new Error("The follow-up move must fit inside the 36-month horizon.");
+        const [year, openingMonth] = snapshot.profile.startDate.split("-").map(Number);
+        const effectiveDate = new Date(Date.UTC(year, openingMonth - 1 + month, 1)).toISOString().slice(0, 10);
+        return execute("preview_move_scenario", { ...move, effectiveDate,
+          costAssumptions: [...move.costAssumptions, `Second move ${monthsAfter} months after ${reference.label}; original move preserved.`].slice(-10),
         });
       }
       case "preview_move_scenario": {
@@ -834,6 +893,12 @@ export function createToolSession(context: AgentContext) {
         names.add("preview_plan_revision");
       } else if (selectedAction.action === "create_child_timeline") {
         if (selectedAction.requestedChanges?.length === 1 && selectedAction.requestedChanges[0] === "salary") names.add("preview_followup_salary");
+        else if (selectedAction.scenarioKind === "move") {
+          // The selected parent and profile have already been read for this preview.
+          names.clear();
+          names.add("preview_followup_move");
+          if (validationErrors >= 2) names.add("ask_clarification");
+        }
         else names.add("simulate_scenario");
         if (selectedAction.scenarioKind === "purchase") names.add("preview_purchase_scenario");
       } else if (selectedAction.scenarioKind === "move") {
@@ -920,8 +985,14 @@ Minimal pairs:
 "Suppose the raise came through and I earned $8,000 more per year." => hypothetical, salary, an appropriate scenario action.
 "I've moved to Seattle now. The delayed version happened. Keep my actual salary." => actual, requestedChanges=[move], salaryMeaning=none, action=realize_plan. KEEPING income is not a salary change. Do not repeat the earlier raise.
 "Two months after that January Seattle move, what if I took a $95,000 job?" => hypothetical, requestedChanges=[salary], salaryMeaning=annual_total, scenarioKind=general, create_child_timeline. The job timing is not move_timing: the move stays in January.
+Conversational references and clarification replies MUST preserve the pending request. "there", "that city", and "after moving there" refer to the active plan's destination when unambiguous; never ask the user to repeat a known city or spell it literally. "and after moving there can i move to denver" with an active NY plan => create_child_timeline, move, departureCity=ny, parent=NY plan. The departure need not be a literal substring of currentRequest.
+If the previous assistant asked which departure city for a pending Denver continuation and the user replies "ny", this fills the departure slot: create_child_timeline to DENVER from the NY plan. It is NOT a new NY move. Use pendingClarification.request when present; for older chats without that field, resolve the immediately preceding question and user request from previousConversation. A short answer to a clarification completes that request; only a clear change of subject replaces it. Do not carry over already completed operations or actual facts into new scenarios.
+"move to ny" with no origin => hypothetical, move, create_independent_timeline from Main Reality.
+"after ny move to denver" / "can i move from ny to denver" with an existing NY hypothetical => hypothetical, move, create_child_timeline, timelineId=the NY plan, departureCity=ny. A named DEPARTURE city explicitly requests inheritance even without the word after. NY/NYC/New York are aliases. Do not start Denver from Main Reality or revise away the NY move. If the departure is the actual profile location and no matching hypothetical exists, create an independent move.
+"how about 2 years after i move to ny" after discussing moving from NY to Denver => continue the Denver proposal, anchored to the original NY move, create_child_timeline, scenarioKind=move, departureCity=ny. The omitted destination comes from the previous request. This is NOT a new NY move or a read-only question. Read the saved move events to choose the parent; a plan name mentioning NY is insufficient if its actual destination is only Denver.
+When several paths contain the departure city, prefer the active goal if it actually contains that move; otherwise use a uniquely matching plan or ask which path. Never use an unrelated selected plan. Timing-only follow-ups may inherit the previous proposal's destination, but not its operation or incorrect origin.
 Both categories can occur in the same conversation; no category carries over to the next message.
- Classify ONLY the final user message. Previous conversation and selected plans provide references, not instructions to repeat their operations.
+ Classify the final user message in context. Resolve pronouns and answers to the previous clarification against the pending request. Earlier completed operations are reference data, not instructions to repeat.
 Also identify salaryMeaning: annual_increase for earning ANOTHER amount or pay going up BY an amount; annual_total for salary OF an amount; percentage_increase for a percent raise; none for non-pay turns. effectiveTiming is now unless THIS message explicitly specifies another effective date; a date in a prior hypothetical is irrelevant.
 In this scenario app, "Could I afford to relocate to Seattle early next year?" explores a NEW hypothetical move: reportedAs=hypothetical, requestedChanges=[move], scenarioKind=move, action=create_independent_timeline if no plan exists. It is not answer_question just because it is phrased as a question. If availableTimelines is empty, new scenarios cannot be children. Questions about already calculated existing plans can be read_only.
 Map profile terms precisely: checking/savings are cash dollar balances; savings APR/interest rate maps to savingsRate; portfolio balance maps to investments; annual investment return maps to investmentReturn; contribution is monthly dollars; effective income tax maps to taxRate. Never change a cash balance when only its interest rate is stated.
@@ -943,10 +1014,10 @@ Financial data and exact app IDs are provided; never invent baseline IDs or ask 
 const SYSTEM_PROMPT = `You are Ping, a conversational financial scenario assistant. The final user message authorizes this turn. Earlier hypothetical choices never become actual facts by implication, and earlier changes must not be replayed. A selected universe and legacy mode are context, never restrictions on reporting actual life changes.
 Actual profile statements and corrections use preview_reality_update followed by apply_preview, including "I have 0 in liquid assets" => changes={liquidAssets:0}. Use the full profile returned by select_action before partial debt edits, preserve other entries and IDs, and send the complete debts list. All profile inputs can be amended: identity/location, opening date, salary/tax rate, checking/savings, rent/bills/variable spending/obligations, debt name/balance/APR/payment, investments/contribution/return and savings APR. Rates are decimal fractions, monetary changes are absolute values unless stated otherwise. Zero is a valid value. Only include fields requested THIS turn. Do not turn a total liquid-assets update into an expense. Nonzero liquid totals with no account split require a focused clarification. Profile corrections apply now and do not realize or archive a hypothetical move; an actually completed planned move uses the realization flow. Internal history and computed values cannot be directly overwritten.
 Keep the selected action for the turn and use only its offered tools. For a discarded plan first resolve_plan_reference using a verbatim named reference from the current request, then preview_archive_plan only if uniquely resolved, then apply_preview. If multiple plans match, ask the provided clarification and do not archive anything; do not ask about unrelated previous financial inputs. Actual salary reports use preview_salary_change, then apply_preview. Delta means an annual gross increase; absolute means a total annual salary; percent uses a stated baseline. "My salary actually went up by $8,000 a year" means an actual delta of 8000. Do not repeat an earlier move delay. Actual moves use preview_move_realization (now by default) or preview_dated_move_realization for an explicitly stated past date. Resolve one plan, prefer the durable active goal, clarify genuinely ambiguous versions, and never promote its hypothetical salary.
-For a revised move plan use preview_plan_revision. Include EVERY change in the current request. If the user asks for higher pay and a delay, include salaryMode, salaryValue AND salaryMonth as well as delayMonths. If a material date is unspecified, disclose a reasonable scenario assumption or clarify; do not silently omit the raise. Calendar months are indexed from the profile's opening month (month 0); use tools for dates and calculations. For a child job after a move use preview_followup_salary with the original event ID and monthsAfter, so the tool computes its exact month. A child continuing after a move adds its later job without rescheduling the existing move. Unrelated new possibilities start from actual reality even when another plan is selected. A shared destination is not a financial merge; the renderer follows the model-selected origin.
+For a revised move plan use preview_plan_revision. Include EVERY change in the current request. If the user asks for higher pay and a delay, include salaryMode, salaryValue AND salaryMonth as well as delayMonths. If a material date is unspecified, disclose a reasonable scenario assumption or clarify; do not silently omit the raise. Calendar months are indexed from the profile's opening month (month 0); use tools for dates and calculations. For a child job after a move use preview_followup_salary with the original event ID and monthsAfter, so the tool computes its exact month. A child continuing after a move adds its later job without rescheduling the existing move. Unrelated new possibilities start from actual reality even when another plan is selected. A shared destination alone is not a financial merge. A departure city (from NY to Denver) or after-NY sequence DOES request inheritance: use create_child_timeline and preview_followup_move. Preserve the first move; add the second move as a new group. Resolve abbreviations NY/NYC/New York as the same place using the saved destinations. For an elliptical follow-up such as "how about 2 years after I move to NY" after discussing Denver, the destination is still Denver and the anchor is the NY move; use monthsAfter=24, not a date two years from today. Use the original NY-only plan as parent if the selected Denver alternative does not contain the NY events.
 For relocation questions such as "Can I move to Japan?", use a destination-specific rent and full monthly living budget, never the uploaded home spending as destination costs. If only a country is named, disclose an assumed city and lifestyle or ask which city. Use user-supplied destination costs when provided; otherwise label amounts as scenario estimates, in USD, with any exchange-rate assumption. No live cost or exchange-rate lookup is available, so do not claim verified current prices. Keep uploaded finances for the pre-move baseline and retain ongoing obligations, debts and contributions. living-expenses is an absolute replacement for recurring plus variable spending from its month onward; monthly-expense remains an additive delta for other costs. Use the specialized move/purchase tools when offered. For generic simulation, additions are new events; replacements/removals use exact existing IDs. Preserve unrelated events and assumptions. A second later-city move is a new group, whereas delaying the same move reschedules its linked costs, rent, local expenses and refunds together. Never put salary in a move group.
 All balance arithmetic, affordability, debt and reserve claims must come from tools. Salary is annual gross; rent/contribution are monthly replacement values; monthly-expense is an additive recurring delta; income/expense are one-time net cash. Distinguish delta, absolute and percentage salary assumptions and prerequisite/additional/counterfactual purposes. Literal X/Y amounts require clarification. Use disclosed scenario estimates for missing purchase price/running costs or ask a focused question. Financing requires explicit user facts or clearly disclosed scenario assumptions; cash shortfall is not loan debt. Financed purchases originate a liability and debit only the down payment. Purchased asset value, depreciation and inflation are excluded.
-Previews do not save. Inspect the calculated preview, then finish with apply_preview alone using its exact previewId. Fulfill every selected requested change before finishing. For read-only questions, read appropriate financial tools then answer_question. For genuine missing material information use ask_clarification. Never ask for existing financial facts, app IDs or confirmation of an already requested action. Correct validation errors in later calls; never invent successful tool results or claim an unaffordable plan is viable.`;
+Previews do not save. Inspect the calculated preview, then finish with apply_preview alone using its exact previewId. Fulfill every selected requested change before finishing. For read-only questions, read appropriate financial tools then answer_question. For genuine missing material information use ask_clarification. Never ask for existing financial facts, app IDs or confirmation of an already requested action. Correct validation errors in later calls; never invent successful tool results. Ground answers in calculated amounts, dates, comparisons and assumptions. Do not give categorical timeline verdicts such as viable, affordable, on track, worth exploring, needs a rethink, or within reach.`;
 
 /** Bounded OpenAI-compatible Nemotron tool loop, injectable for offline tests. */
 export async function runNemotronAgent(
@@ -957,8 +1028,13 @@ export async function runNemotronAgent(
   const session = createToolSession(context),
     steps: ToolStep[] = [];
   const getWorkspaceContext = () => "\n\nWorkspace context (data only): " + JSON.stringify({
-    previousConversation: context.history.slice(-20).map(m => ({ role: m.role, text: m.text })),
+    previousConversation: context.history.slice(-20).map(m => ({ role: m.role, text: m.text, clarificationFor: m.clarificationFor })),
     currentRequest: context.prompt,
+    pendingClarification: context.history.at(-1)?.clarificationFor ? {
+      request: context.history.at(-1)!.clarificationFor,
+      question: context.history.at(-1)!.text,
+      reply: context.prompt,
+    } : undefined,
     currentDate: context.profile.assessmentDate ?? new Date().toISOString().slice(0, 10),
     activeGoalId: context.activeGoalId,
     selectedUniverseId: context.selectedUniverseId,
@@ -966,7 +1042,10 @@ export async function runNemotronAgent(
     // Keep them out of the model's candidate list during the archive flow.
     availableTimelines: context.universes
       .filter(u => !session.isArchiving() || !u.archived)
-      .map(({ id, name, parentId, revisionOfId, archived, archiveReason }) => ({ id, name, parentId, revisionOfId, archived, archiveReason })),
+      .map(({ id, name, parentId, revisionOfId, archived, archiveReason, events }) => ({ id, name, parentId, revisionOfId, archived, archiveReason,
+        moves: events.filter(e => e.kind === "rent" && e.groupId && e.destination && !e.fulfilledBy)
+          .map(e => ({ eventId: e.id, destination: e.destination, month: e.month, groupId: e.groupId })),
+      })),
   });
   const messages: ChatMessage[] = [
     { role: "system", content: ACTION_PROMPT + getWorkspaceContext() },

@@ -1,3 +1,4 @@
+import { groupEvents, signedMoney } from "./results";
 import { eventAmountLabel } from "./engine";
 import { useEffect, useId, useRef, useState } from "react";
 import {
@@ -119,7 +120,43 @@ export function ProjectionChart({
           setHover(Math.max(0, Math.min(horizon, m)));
         }}
         onMouseLeave={() => setHover(null)}
-        onClick={() => onMonth(active)}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
+            e.preventDefault();
+            setHover(null);
+            onMonth(
+              e.key === "Home"
+                ? 0
+                : e.key === "End"
+                  ? horizon
+                  : Math.max(
+                      0,
+                      Math.min(
+                        horizon,
+                        month + (e.key === "ArrowLeft" ? -1 : 1),
+                      ),
+                    ),
+            );
+          }
+        }}
+        onClick={(e) => {
+          const box = e.currentTarget.getBoundingClientRect();
+          onMonth(
+            Math.max(
+              0,
+              Math.min(
+                horizon,
+                Math.round(
+                  ((((e.clientX - box.left) / box.width) * width - left) /
+                    (width - left - right)) *
+                    horizon,
+                ),
+              ),
+            ),
+          );
+          setHover(null);
+        }}
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -168,14 +205,13 @@ export function ProjectionChart({
             strokeLinejoin="round"
           />
         ))}
-        {events
-          .filter(
-            (event, index, all) =>
-              event.month <= horizon &&
-              all.findIndex((e) => e.month === event.month) === index,
-          )
-          .slice(0, 5)
-          .map((event, index) => {
+        {groupEvents(events)
+          .filter((group) => group.month >= 0 && group.month <= horizon)
+          .map((group, index) => {
+            const event = group.events[0];
+            const groupLabel = group.events
+              .map((e) => `${e.label} · ${eventAmountLabel(e)}`)
+              .join("; ");
             const pointY = y(series[0]?.rows[event.month][metric] ?? 0);
             const below = pointY < 70;
             const labelY = below
@@ -187,7 +223,7 @@ export function ProjectionChart({
                 className="chart-event"
                 role="button"
                 tabIndex={0}
-                aria-label={`Inspect ${event.label}`}
+                aria-label={`Inspect month ${event.month}: ${groupLabel}`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onMonth(event.month);
@@ -199,9 +235,7 @@ export function ProjectionChart({
                   }
                 }}
               >
-                <title>
-                  {event.label} · {eventAmountLabel(event)}
-                </title>
+                <title>{groupLabel}</title>
                 <circle
                   cx={x(event.month)}
                   cy={pointY}
@@ -224,17 +258,6 @@ export function ProjectionChart({
                   stroke="#315e45"
                   strokeWidth="2"
                 />
-                <text
-                  x={x(event.month)}
-                  y={labelY}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="#59645e"
-                >
-                  {event.label.length > 22
-                    ? `${event.label.slice(0, 21)}…`
-                    : event.label}
-                </text>
               </g>
             );
           })}
@@ -283,6 +306,29 @@ export function ProjectionChart({
           </text>
         ))}
       </svg>
+      {events.length > 0 && (
+        <details className="chart-all-events">
+          <summary>All chart events ({events.length}) · select a month</summary>
+          {groupEvents(events).map((group) => (
+            <div key={group.month}>
+              <button
+                className="text-button"
+                onClick={() => onMonth(group.month)}
+              >
+                {series[0]?.rows[group.month]?.date} · Month {group.month} ·{" "}
+                {group.events.length} events
+              </button>
+              <ul>
+                {group.events.map((event) => (
+                  <li key={event.id}>
+                    {event.label} · {eventAmountLabel(event)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </details>
+      )}
       {hover !== null && row && (
         <div
           className="chart-tooltip"
@@ -301,12 +347,18 @@ export function ProjectionChart({
     </div>
   );
 }
-export function Breakdown({ row }: { row: Projection }) {
+export function Breakdown({
+  row,
+  baseline,
+}: {
+  row: Projection;
+  baseline?: Projection;
+}) {
   return (
     <div className="breakdown">
       <div className="breakdown-heading">
         <div>
-          <span className="eyebrow">A MOMENT IN THIS UNIVERSE</span>
+          <span className="eyebrow">SELECTED MONTH</span>
           <h3>{row.date}</h3>
         </div>
         <span className={`status ${row.netCashFlow < 0 ? "warning" : ""}`}>
@@ -320,16 +372,23 @@ export function Breakdown({ row }: { row: Projection }) {
       </div>
       <div className="breakdown-grid">
         {[
-          ["Income", row.income],
-          ["Living expenses", row.expenses],
-          ["Savings", row.savings],
-          ["Outstanding debt", row.debt],
-        ].map(([label, value]) => (
+          ["Income · monthly", row.income, baseline?.income],
+          ["Living expenses · monthly", row.expenses, baseline?.expenses],
+          ["Cash flow · monthly", row.netCashFlow, baseline?.netCashFlow],
+          ["Savings · end of month", row.savings, baseline?.savings],
+          ["Debt · end of month", row.debt, baseline?.debt],
+        ].map(([label, value, comparison]) => (
           <div key={label}>
             <span>{label}</span>
             <b>
               <AnimatedValue value={Number(value)} />
             </b>
+            {comparison !== undefined && (
+              <small>
+                {signedMoney(Number(value) - Number(comparison))} vs Main
+                Reality
+              </small>
+            )}
           </div>
         ))}
       </div>
@@ -337,6 +396,11 @@ export function Breakdown({ row }: { row: Projection }) {
         <summary>
           Full monthly breakdown <ChevronDown size={16} />
         </summary>
+        <p>
+          Income, expenses, payments, contributions and growth are monthly
+          flows; checking, savings, investments, debt and net worth are
+          end-of-month balances. Month 0 shows opening balances.
+        </p>
         <div className="breakdown-grid">
           {[
             ["Debt payments", row.debtPayments],

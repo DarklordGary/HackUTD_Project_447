@@ -53,6 +53,75 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 describe("application demo", () => {
+  it("keeps horizon outcomes fixed while shortcuts, slider, chart keys and liquidity jump select one month", async () => {
+    const workspace = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    const plan = workspace.universes[0];
+    const { simulate, money } = await import("./engine");
+    const { minimumLiquidity, signedMoney } = await import("./results");
+    const rows = simulate(workspace.profile, plan.events);
+    const baseline = simulate(workspace.profile);
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: `Open ${plan.name}` }));
+    const horizon = screen.getByRole("region", { name: "Horizon outcomes" });
+    expect(within(horizon).getByText(money(rows[36].netWorth))).toBeTruthy();
+    expect(within(horizon).getAllByText(`${signedMoney(rows[36].netWorth - baseline[36].netWorth)} vs Main Reality`).length).toBeGreaterThan(0);
+    const fixed = horizon.textContent;
+    const slider = screen.getByRole("slider", { name: "Inspect projection month" }) as HTMLInputElement;
+    fireEvent.click(screen.getByRole("button", { name: "2 years" }));
+    expect(slider.value).toBe("24");
+    expect(screen.getByRole("heading", { name: rows[24].date })).toBeTruthy();
+    fireEvent.change(slider, { target: { value: "7" } });
+    expect(screen.getByRole("heading", { name: rows[7].date })).toBeTruthy();
+    const chart = screen.getByRole("group", { name: /savings projections/ });
+    fireEvent.mouseMove(chart, { clientX: 200 });
+    expect(slider.value).toBe("7");
+    fireEvent.keyDown(chart, { key: "ArrowRight" });
+    expect(slider.value).toBe("8");
+    fireEvent.click(screen.getByRole("button", { name: `Jump to month ${minimumLiquidity(rows).month}` }));
+    expect(slider.value).toBe(String(minimumLiquidity(rows).month));
+    expect(horizon.textContent).toBe(fixed);
+  });
+  it("uses archived dates and omits dollar comparisons when snapshot dates differ", () => {
+    const workspace = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    const plan = workspace.universes[0];
+    plan.archived = true; plan.finalProfile = { ...workspace.profile, startDate: "2020-01-01" };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
+    render(<App />);
+    fireEvent.click(screen.getByLabelText("Show archived"));
+    fireEvent.click(screen.getByText(/Branches \(/));
+    fireEvent.click(screen.getByLabelText(plan.name));
+    fireEvent.click(screen.getByRole("button", { name: `Open ${plan.name}` }));
+    expect(screen.getByText(/Dates differ; Main Reality overlay/)).toBeTruthy();
+    expect(screen.queryByText(/vs Main Reality/)).toBeNull();
+    expect(screen.getByRole("slider").getAttribute("aria-valuetext")).toContain("2021");
+  });
+  it("compares independent and missing-source timelines with Main Reality without selecting unrelated plans", () => {
+    const workspace = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    const plan = workspace.universes[0];
+    plan.revisionOfId = "missing-original";
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: `Open ${plan.name}` }));
+    fireEvent.click(screen.getByRole("button", { name: "Compare with original" }));
+    expect(screen.getByText(/original source is unavailable/)).toBeTruthy();
+    const table = screen.getByRole("table");
+    expect(within(table).getByText("Main Reality")).toBeTruthy();
+    expect(within(table).queryByText(workspace.universes[1].name)).toBeNull();
+    expect(within(table).getByText(plan.name)).toBeTruthy();
+  });
+  it("exposes every same-month chart event and selects its complete group", () => {
+    const workspace = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    const plan = workspace.universes[0];
+    plan.events = Array.from({ length: 9 }, (_, i) => ({ ...plan.events[0], id: `grouped-${i}`, label: `Cost ${i}`, month: i < 3 ? 1 : i }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
+    render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: `Open ${plan.name}` }));
+    const group = screen.getByRole("button", { name: /Inspect month 1: Cost 0.*Cost 1.*Cost 2/ });
+    fireEvent.keyDown(group, { key: "Enter" });
+    expect((screen.getByRole("slider") as HTMLInputElement).value).toBe("1");
+    expect(screen.getByRole("button", { name: /Inspect month 8: Cost 8/ })).toBeTruthy();
+    expect(screen.getByText(/All chart events \(9\)/)).toBeTruthy();
+  });
   it("starts a new chat without deleting finances or plans, and sends no prior conversation or goal", async () => {
     const workspace = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     workspace.profile.annualSalary = 80000;
@@ -89,6 +158,26 @@ describe("application demo", () => {
     expect(request.profile.annualSalary).toBe(80000);
     expect(request.universes).toHaveLength(workspace.universes.length);
     expect(request.universes.every((u: any) => u.messages.length === 0)).toBe(true);
+  });
+  it("persists the original pending request across reloads and repeated clarification replies", async () => {
+    const requests: any[] = [];
+    vi.mocked(fetch).mockImplementation(async (url: any, options?: RequestInit) => {
+      if (url === "/api/status") return { ok: true, json: async () => ({ ai: "Nemotron" }) } as Response;
+      requests.push(JSON.parse(options!.body as string));
+      return { ok: true, json: async () => ({ source: "Nemotron", data: { name: "Conversation", description: "", events: [], assumptions: [], clarification: requests.length === 1 ? "Which departure city?" : "How long after NY?" } }) } as Response;
+    });
+    let view = render(<App />);
+    const prompt = "and after moving there can i move to denver";
+    fireEvent.change(screen.getByLabelText("Your message to Ping"), { target: { value: prompt } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText("Which departure city?");
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).conversation.at(-1).clarificationFor).toBe(prompt);
+    view.unmount(); view = render(<App />);
+    fireEvent.change(screen.getByLabelText("Your message to Ping"), { target: { value: "ny" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText("How long after NY?");
+    expect(requests[1].history.at(-1).clarificationFor).toBe(prompt);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).conversation.at(-1).clarificationFor).toBe(prompt);
   });
   it("ignores a pending old reply after starting and sending a new chat", async () => {
     let finishOld: ((response: Response) => void) | undefined;
@@ -257,15 +346,13 @@ describe("application demo", () => {
     );
   });
 
-  it("applies Nemotron's branch operation from a reality-update conversation", async () => {
+  it("applies Nemotron's branch operation from the selected timeline composer", async () => {
     render(<App />);
     const before = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     fireEvent.click(screen.getByRole("button", { name: "Open A New York chapter" }));
-    fireEvent.click(screen.getByText("More actions"));
-    fireEvent.click(screen.getByRole("button", { name: /Update reality/ }));
     vi.mocked(fetch).mockImplementation(
       async (_url: any, options?: RequestInit) => {
-        expect(JSON.parse(options!.body as string).mode).toBe("reality");
+        expect(JSON.parse(options!.body as string).mode).toBe("branch");
         return {
           ok: true,
           json: async () => ({
@@ -535,7 +622,7 @@ describe("application demo", () => {
       JSON.parse(localStorage.getItem(STORAGE_KEY)!).universes,
     ).toHaveLength(5);
   });
-  it("opens a timeline, switches metrics, inspects a month, and archives/restores it", async () => {
+  it("keeps inspection controls and Ask Ping while removing manual timeline mutation actions", async () => {
     render(<App />);
     const original = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     const name = original.universes[0].name;
@@ -556,20 +643,13 @@ describe("application demo", () => {
       (screen.getByLabelText("Inspect projection month") as HTMLInputElement)
         .value,
     ).toBe("7");
-    fireEvent.click(screen.getByText("More actions"));
-    fireEvent.click(screen.getByRole("button", { name: "Archive timeline" }));
-    expect(
-      JSON.parse(localStorage.getItem(STORAGE_KEY)!).universes[0].archived,
-    ).toBe(true);
-    expect(screen.queryByRole("button", { name: `Open ${name}` })).toBeNull();
-    fireEvent.click(screen.getByLabelText("Show archived"));
-    fireEvent.click(screen.getByRole("button", { name: `Open ${name}` }));
-    fireEvent.click(screen.getByText("More actions"));
-    fireEvent.click(screen.getByRole("button", { name: "Restore timeline" }));
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-    expect(saved.universes[0].archived).toBe(false);
-    expect(saved.universes[0].events).toEqual(original.universes[0].events);
-    expect(saved.profile).toEqual(original.profile);
+    for (const name of ["Branch this timeline", "Modify assumptions", "Archive timeline", "Restore timeline", "Update reality"]) {
+      expect(screen.queryByRole("button", { name })).toBeNull();
+    }
+    expect(screen.queryByText("More actions")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Remove / })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Your message to Ping" })).toBeTruthy();
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toEqual(original);
   });
   it("renders a live tool-backed answer without creating a universe", async () => {
     const mockedFetch = vi.mocked(fetch);
@@ -635,6 +715,7 @@ describe("application demo", () => {
               events: [],
               assumptions: [],
               explicitOperations: true,
+              operation: "modify",
               targetUniverseId: target.id,
               removeEventIds: [removedId],
               explanation:
@@ -646,7 +727,6 @@ describe("application demo", () => {
     fireEvent.click(
       screen.getByRole("button", { name: `Open ${target.name}` }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Modify assumptions" }));
     const dialog = screen.getByRole("region", { name: "Ask Ping" });
     fireEvent.change(within(dialog).getByLabelText("Your message to Ping"), {
       target: {
@@ -718,7 +798,6 @@ describe("application demo", () => {
     ).toBe(7);
     expect(JSON.stringify(saved.universes[4].events)).toBe(originalEvents);
     fireEvent.click(screen.getByRole("button", { name: "Open NYC with a new job" }));
-    fireEvent.click(screen.getByText("More actions"));
     fireEvent.click(screen.getByRole("button", { name: "Compare with original" }));
     expect(screen.getByRole("table")).toBeTruthy();
     expect(screen.getByText("HOW YOUR POSSIBILITIES CONNECT")).toBeTruthy();
@@ -749,7 +828,7 @@ describe("application demo", () => {
       within(dialog).getByRole("button", { name: "See what changed" }),
     );
     expect(screen.getByText("WITH YOUR NEW REALITY")).toBeTruthy();
-    expect(screen.getAllByText("Newly viable").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Newly viable")).toBeNull();
     cleanup();
     render(<App />);
     fireEvent.click(screen.getByRole("button", { name: /My Baseline/ }));

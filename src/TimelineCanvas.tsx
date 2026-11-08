@@ -603,7 +603,7 @@ export default function TimelineCanvas({
             >
               <div className="event-popover-heading">
                 <strong>{selectedLane.universe.name}</strong>
-                <span>{monthLabel(profile, selection.month)}</span>
+                <span>{monthLabel(selectedLane.universe.finalProfile ?? profile, selection.month)}</span>
               </div>
               {events.map((event) => (
                 <div className="event-popover-row" key={event.id}>

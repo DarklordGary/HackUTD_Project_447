@@ -69,6 +69,7 @@ export interface Projection {
   liquid: number;
 }
 export interface Message {
+  clarificationFor?: string;
   id: string;
   role: "user" | "assistant";
   text: string;

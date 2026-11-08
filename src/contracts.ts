@@ -116,6 +116,7 @@ export const profileSchema = z.object({
   actualEvents: z.array(z.object({ id: z.string().max(100), effectiveDate: z.iso.date(), sourceUniverseId: z.string().max(100).optional(), location: z.string().max(100).optional(), events: z.array(storedEventSchema).max(100) })).max(100).optional(),
 });
 export const messageSchema = z.object({
+  clarificationFor: z.string().max(2000).optional(),
   id: z.string().max(100),
   role: z.enum(["user", "assistant"]),
   text: z.string().max(10000),

@@ -75,12 +75,12 @@ export function mergeAssumptions(
   ];
 }
 export function explain(profile: Profile, universe: Universe, source: string) {
-  const { rows, viable, firstShortfall, shortfallReserve } = assess(profile, universe);
+  const { rows, firstShortfall, shortfallReserve } = assess(profile, universe);
   const end = rows[36];
-  const result = viable ? "This path is viable and stays above your three-month emergency reserve."
-    : firstShortfall ? `This path needs attention: liquid funds of ${money(firstShortfall.liquid)} fall below the ${money(shortfallReserve!)} reserve in ${firstShortfall.date} (month ${firstShortfall.month}).`
-    : `This path needs attention: cash flow in the final six months is negative (month 36: ${money(end.netCashFlow)}).`;
-  return `${source === "Nemotron" ? "I’ve interpreted" : "Demo interpretation of"} your scenario. ${result} In 3 years, the engine projects ${money(end.netWorth)} net worth and ${money(end.savings)} savings. Open any month to see the breakdown. These are estimates, not guarantees.`;
+  const reserve = firstShortfall ? ` Liquid funds are ${money(firstShortfall.liquid)} in ${firstShortfall.date} (month ${firstShortfall.month}), compared with ${money(shortfallReserve!)} for three months of modeled living expenses.` : "";
+  const negative = rows.slice(1).filter(r => r.netCashFlow < 0);
+  const cashFlow = negative.length ? ` Negative monthly cash flow: ${negative.map(r => `${r.date} (month ${r.month}): ${money(r.netCashFlow)}`).join("; ")}.` : " No modeled month has negative cash flow.";
+  return `${source === "Nemotron" ? "I have interpreted" : "Demo interpretation of"} your scenario. At 36 months, the engine projects ${money(end.netWorth)} net worth and ${money(end.savings)} savings.${reserve}${cashFlow} Open any month to see the breakdown. These are estimates, not guarantees.`;
 }
 
 export function rescheduleGroup(events: FinancialEvent[], groupId: string, delay: number) {
@@ -214,7 +214,7 @@ export function applyReality(state: AppState, data: Interpretation, prompt: stri
     const prev = assess(before, original), next = assess(after, u);
     return { id: u.id, name: u.name, beforeViable: prev.viable, afterViable: next.viable, beforeNetWorth: prev.rows[36].netWorth, afterNetWorth: next.rows[36].netWorth, assumptions: notes };
   });
-  const notices = impacts.map(i => ({ id: operationId + ":" + i.id, title: !i.beforeViable && i.afterViable ? `${i.name} is now within reach` : `${i.name} has a new outlook`, text: `${money(i.beforeNetWorth)} → ${money(i.afterNetWorth)} projected net worth in 3 years. ${i.assumptions.join(" ")}`, time: after.updatedAt, read: false, universeId: i.id }));
-  const explanation = `${realized ? `${after.location} is now reality. Archived ${realized.name}. ` : "Your real financial profile is updated. "}I recalculated all ${impacts.length} active universes. ${impacts.filter(i => !i.beforeViable && i.afterViable).map(i => `${i.name} is now viable. `).join("")}Your baseline 3-year net worth changes by ${money(simulate(after)[36].netWorth - simulate(before)[36].netWorth)}. ${disclosure.join("; ")}${disclosure.length ? ". " : ""}${impacts.flatMap(i => i.assumptions).join(" ")}`;
+  const notices = impacts.map(i => ({ id: operationId + ":" + i.id, title: `${i.name} projections updated`, text: `${money(i.beforeNetWorth)} → ${money(i.afterNetWorth)} projected net worth in 3 years. ${i.assumptions.join(" ")}`, time: after.updatedAt, read: false, universeId: i.id }));
+  const explanation = `${realized ? `${after.location} is now reality. Archived ${realized.name}. ` : "Your real financial profile is updated. "}I recalculated all ${impacts.length} active universes. Your baseline 3-year net worth changes by ${money(simulate(after)[36].netWorth - simulate(before)[36].netWorth)}. ${disclosure.join("; ")}${disclosure.length ? ". " : ""}${impacts.flatMap(i => i.assumptions).join(" ")}`;
   return { impacts, explanation, state: { ...state, profile: after, universes, notices: [...notices, ...state.notices], changes: [{ id: operationId, prompt, before, after, impacts, time: after.updatedAt }, ...state.changes], appliedOperationIds: [...(state.appliedOperationIds ?? []), operationId] } };
 }

@@ -1,5 +1,7 @@
 # Implementation handoff: conversational timeline lifecycle
 
+Historical handoff: evaluative wording below describes the earlier specification, not current presentation. The implemented neutral result behavior is documented in `timeline-results-plan.md` and `conversational-timeline-implementation.md`.
+
 ## Mandate and scope
 
 The user wants a text-first financial alternate-universe app that can explore a plan, explore a connected revision, respond to real life changes, recognize when a plan has happened, and start a new possibility from that updated reality.

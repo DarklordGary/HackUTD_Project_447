@@ -50,6 +50,26 @@ function completion(name: string, args: unknown, id = "call-1") {
   };
 }
 describe("financial tool dispatcher", () => {
+  it("returns factual opening-boundary minima and respects archived profiles in every projection tool", () => {
+    const ctx = context();
+    ctx.profile.checking = 0; ctx.profile.savings = 0;
+    const session = createToolSession(ctx);
+    const result = session.execute("get_financial_profile", {}).output as any;
+    expect(result.forecast.minimumLiquidFunds).toBe(0);
+    expect(result.forecast.minimumLiquidityMonth).toBe(0);
+    expect(result.forecast).not.toHaveProperty("viable");
+    expect(result.forecast).not.toHaveProperty("status");
+    expect(result.assumptions).not.toHaveProperty("viabilityRule");
+    const plan = ctx.universes[0];
+    plan.archived = true; plan.finalProfile = { ...ctx.profile, startDate: "2020-01-01", savings: 12345 };
+    const archived = createToolSession(ctx);
+    const row = (archived.execute("get_monthly_projection", { timelineId: plan.id, month: 12 }).output as any).projection;
+    expect(row).toEqual(simulate(plan.finalProfile, plan.events)[12]);
+    const compared = archived.execute("compare_timelines", { timelineIds: [plan.id, "current"], month: 12 }).output as any;
+    expect(compared.comparisons[0].projection).toEqual(row);
+    expect(compared.comparisons[0].snapshotStartDate).toBe("2020-01-01");
+    expect(compared.comparisons[1].snapshotStartDate).toBe(ctx.profile.startDate);
+  });
   it("replaces uploaded spending with a disclosed Japan budget from the move date", () => {
     const ctx = context();
     ctx.prompt = "Can I move to Japan?";
@@ -178,6 +198,50 @@ describe("financial tool dispatcher", () => {
     const command = session.execute("apply_preview", { previewId: preview.previewId, explanation: "A continuation." }).final!;
     expect(command.branchOrigin).toBeUndefined();
     expect(command.targetUniverseId).toBe(ctx.selectedUniverseId);
+  });
+  it.each(["after ny move to denver", "and after moving there can i move to denver"])("preserves the NY path for %s", (prompt) => {
+    const ctx = context();
+    const plan = ctx.universes[0];
+    const rent = plan.events.find(e => e.kind === "rent")!;
+    rent.groupId = "ny"; rent.destination = "New York, NY"; rent.month = 2;
+    ctx.activeGoalId = plan.id;
+    ctx.selectedUniverseId = undefined;
+    ctx.prompt = prompt;
+    const original = structuredClone(plan);
+    const session = createToolSession(ctx);
+    const selected = session.execute("select_action", { action: "create_child_timeline", scenarioKind: "move", departureCity: "ny", requestedChanges: ["move"] }).output as any;
+    expect(selected.selectedTimelineId).toBe(plan.id);
+    expect(selected.nextTool).toBe("preview_followup_move");
+    expect(session.availableTools().map(t => t.function.name)).toContain("preview_followup_move");
+    const args = { timelineId: plan.id, referenceEventId: rent.id, monthsAfter: 24, destination: "Denver, CO", rent: 1800, movingCost: 3000, monthlyLivingExpenses: 1400, costAssumptions: ["Illustrative single-person Denver budget in USD."], name: "NY then Denver" };
+    expect(() => session.execute("preview_followup_move", { ...args, referenceEventId: "missing" })).toThrow(/exact unfulfilled rent/);
+    expect(() => session.execute("preview_followup_move", { ...args, destination: "NYC" })).toThrow(/different destination/);
+    expect(() => session.execute("preview_followup_move", { ...args, monthsAfter: 35 })).toThrow(/36-month/);
+    expect(() => session.execute("preview_followup_move", { ...args, timelineId: ctx.universes[1].id })).toThrow(/selected parent/);
+    const preview = session.execute("preview_followup_move", args).output as any;
+    const command = session.execute("apply_preview", { previewId: preview.previewId, explanation: "Calculated sequential moves." }).final!;
+    expect(command.operation).toBe("branch");
+    expect(command.targetUniverseId).toBe(plan.id);
+    expect(command.branchOrigin).toBeUndefined();
+    expect(command.events).toHaveLength(3);
+    expect(command.events.every(e => e.month === 26 && e.destination === "Denver, CO")).toBe(true);
+    const combined = mergeEvents(plan.events, command.events, command.removeEventIds, true);
+    expect(combined.slice(0, plan.events.length)).toEqual(original.events);
+    expect(preview.after.checkpoints.at(-1).netWorth).toBe(simulate(ctx.profile, combined)[36].netWorth);
+    expect(plan).toEqual(original);
+  });
+  it("resolves NY by saved destination despite a misleading active NY-to-Denver title", () => {
+    const ctx = context();
+    const wrong = ctx.universes[1];
+    wrong.name = "NYC to Denver Move";
+    wrong.events = [{ id: "denver-rent", kind: "rent", label: "Denver rent", month: 2, amount: 1800, destination: "Denver, CO", groupId: "denver", estimated: true }];
+    ctx.universes[0].events.find(e => e.kind === "rent")!.destination = "New York, NY";
+    ctx.prompt = "how about 2 years after i move to ny";
+    const session = createToolSession(ctx);
+    const args = { action: "create_child_timeline", scenarioKind: "move", departureCity: "ny", timelineId: wrong.id };
+    expect(() => session.execute("select_action", { ...args, departureCity: "unknown city" })).toThrow(/does not contain/);
+    const selected = session.execute("select_action", args).output as any;
+    expect(selected.selectedTimelineId).toBe(ctx.universes[0].id);
   });
   it("starts a standalone China alternative from baseline even with New York selected", () => {
     const ctx = context();
@@ -362,14 +426,15 @@ describe("financial tool dispatcher", () => {
     const preview = session.execute("preview_reality_update", {
       changes: { annualSalary: 90000 },
     }).output as any;
-    expect(preview.timelines[0].before.viable).toBe(false);
-    expect(preview.timelines[0].after.viable).toBe(true);
+    expect(preview.timelines[0].before).not.toHaveProperty("viable");
+    expect(preview.timelines[0].after).not.toHaveProperty("status");
+    expect(preview.timelines[0].after.checkpoints[4].netWorth).toBeGreaterThan(preview.timelines[0].before.checkpoints[4].netWorth);
     expect(preview.after.checkpoints[0].netWorth).toBe(
       preview.before.checkpoints[0].netWorth,
     );
     const final = session.execute("apply_preview", {
       previewId: preview.previewId,
-      explanation: "The move is now viable.",
+      explanation: "The projected net worth has changed.",
     }).final!;
     expect(final.reality?.annualSalary).toBe(90000);
     expect(final.operation).toBe("reality");
@@ -452,7 +517,7 @@ describe("Nemotron function-calling protocol", () => {
           "apply_preview",
           {
             previewId: toolResult.previewId,
-            explanation: "Your new salary makes this path viable.",
+            explanation: "Your new salary changes the projected balances.",
           },
           "finish",
         ),
@@ -464,7 +529,7 @@ describe("Nemotron function-calling protocol", () => {
       fetcher,
     );
     expect(result.data.events).toEqual([job]);
-    expect(result.data.explanation).toContain("viable");
+    expect(result.data.explanation).toContain("At 36 months");
     expect(result.tools.map((t) => t.tool)).toEqual([
       "select_action",
       "get_timeline",

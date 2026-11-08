@@ -17,6 +17,7 @@
     "test:discard-intent:live": "tsx scripts/verify-discard-intent.ts",
     "test:profile-intent:live": "tsx scripts/verify-profile-intent.ts",
     "test:reality-intent:live": "tsx scripts/verify-reality-intent.ts",
+    "test:relocation-intent:live": "tsx scripts/verify-relocation-intent.ts",
     "test:branch-intent:live": "tsx scripts/verify-branch-intent.ts",
     "test:lifecycle:live": "tsx scripts/verify-lifecycle.ts",
     "nemotron:chat": "tsx scripts/nemotron-chat.ts"

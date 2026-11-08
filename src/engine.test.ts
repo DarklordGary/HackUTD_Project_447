@@ -2,8 +2,18 @@ import { describe, expect, it } from "vitest";
 import { assess, simulate, currentFacts } from "./engine";
 import { seedExamples as seed } from "./seed-fixtures.test-support";
 import { modelFixture } from "./model-fixtures.test-support";
-import { applyReality, mergeEvents } from "./state";
+import { applyReality, explain, mergeEvents } from "./state";
 describe("deterministic monthly simulation", () => {
+  it("summarizes the actual negative-flow month without assigning a timeline verdict", () => {
+    const s = seed();
+    const plan = { ...s.universes[0], events: [{ id: "late-cost", kind: "expense" as const, month: 35, label: "One-time cost", amount: 50000, estimated: false }] };
+    const rows = simulate(s.profile, plan.events);
+    expect(rows[35].netCashFlow).toBeLessThan(0);
+    expect(rows[36].netCashFlow).toBeGreaterThan(0);
+    const summary = explain(s.profile, plan, "Nemotron");
+    expect(summary).toContain(`${rows[35].date} (month 35)`);
+    expect(summary).not.toMatch(/viable|within reach|needs attention|final six months/i);
+  });
   it("retains the destination budget when a planned move becomes reality", () => {
     const state = seed();
     state.profile.assessmentDate = "2026-12-08";
@@ -159,7 +169,7 @@ describe("full demo journey", () => {
     expect(result.state.profile.annualSalary).toBe(90000);
     expect(s.profile.annualSalary).toBe(72000);
     expect(assess(result.state.profile, ny).viable).toBe(true);
-    expect(result.explanation).toContain("now viable");
+    expect(result.explanation).not.toMatch(/viable|within reach|needs attention/i);
     expect(result.state.universes).toEqual(s.universes);
     expect(result.state.changes[0].before.annualSalary).toBe(72000);
     expect(

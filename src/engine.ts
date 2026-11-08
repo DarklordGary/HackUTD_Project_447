@@ -236,11 +236,6 @@ export function assess(profile: Profile, universe: Universe) {
     shortfallReserve: firstShortfall ? reserves[Math.max(0, firstShortfall.month - 1)] : undefined,
     minimum,
     reserve,
-    status: viable
-      ? "On track"
-      : minimum < 0
-        ? "Needs a rethink"
-        : "Worth exploring",
     rows,
   };
 }

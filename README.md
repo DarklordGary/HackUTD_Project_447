@@ -23,7 +23,7 @@ Main Reality starts with zero hypothetical branches. Use the always-visible Ping
 4. **“I've moved to New York. The delayed version is the one that happened. Use its estimates provisionally.”** records the move in Main Reality and realizes only that plan. Other versions retain their history and no longer replay the completed move.
 5. **“What if I bought a $250,000 boat with $10,000 down, financed at 12% APR for 120 months and $1,500 monthly running costs?”** starts an independent future from actual New York finances. Purchased asset value and depreciation are excluded.
 
-Outcomes depend on the supplied amounts, dates and disclosed estimates. A small actual raise does not guarantee viability. Cash purchases never create modeled loan debt. See [lifecycle implementation and verification](docs/conversational-timeline-implementation.md) for the fixed-date fixture and limitations.
+Outcomes depend on the supplied amounts, dates and disclosed estimates. Results show amounts, dates and signed dollar comparisons without categorical timeline verdicts. Cash purchases never create modeled loan debt. See [lifecycle implementation and verification](docs/conversational-timeline-implementation.md) for the fixed-date fixture and limitations.
 
 The map remains the primary view. Select a path or event to inspect its projections and Branch Summary. Savings, Net Worth, Cash Flow and Debt share the deterministic engine. The composer and durable active goal retain conversation context across navigation and reload. Manually archived and realized plans retain historical projections; realized plans cannot be restored as pending moves. Settings → Reset demo restores Main Reality with no hypothetical branches.
 
@@ -128,3 +128,5 @@ Lifecycle verification: 73 automated tests, production build, database type chec
 - [SpacetimeDB TypeScript client](https://spacetimedb.com/docs/clients/typescript/)
 - [SpacetimeDB reducers](https://spacetimedb.com/docs/functions/reducers/)
 - [NVIDIA Nemotron 3.5 Bolt E4B](https://build.nvidia.com/nvidia/nemotron-3.5-bolt-e4b)
+
+Timeline details separate fixed 36-month outcomes from the inspected month, show minimum checking-plus-savings with a month jump, and expose all grouped events. Historical snapshots disclose their profile/date basis and omit misaligned comparisons. Existing saved conversations and notifications remain historical text. See [timeline results implementation](docs/timeline-results-plan.md#implementation-outcome--2026-11-08).

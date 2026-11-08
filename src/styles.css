@@ -1813,13 +1813,10 @@ nav {
   font-weight: 500;
   color: var(--ink);
 }
-.ripple-universes > button > span:not(.status) {
+.ripple-universes > button > span {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-.ripple-universes .status {
-  margin-left: auto;
 }
 .notices {
   display: flex;
@@ -2608,9 +2605,6 @@ nav {
     width: 100%;
     font-size: 13px;
   }
-  .ripple-universes .status {
-    margin-left: auto;
-  }
   .page-heading {
     align-items: flex-start;
     gap: 20px;
@@ -2895,9 +2889,6 @@ nav {
   .detail-page-heading h1 {
     font-size: 26px;
     max-width: 20ch;
-  }
-  .detail-page-heading > .status {
-    font-size: 11px;
   }
   .back-button {
     font-size: 12px;
@@ -3195,9 +3186,6 @@ nav {
   }
   .ripple-universes b {
     font-size: 13px;
-  }
-  .ripple-universes .status {
-    font-size: 10px;
   }
   .notice {
     padding: 24px 20px;

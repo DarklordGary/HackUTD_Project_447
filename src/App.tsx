@@ -1,7 +1,8 @@
+import { HorizonOutcomes, LiquidityObservation, ScenarioInputs } from "./TimelineResults";
+import { comparisonSource, datesAlign, groupEvents, minimumLiquidity, signedMoney } from "./results";
 import { currentFacts, eventAmountLabel } from "./engine";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
-  Archive,
   ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
@@ -20,7 +21,6 @@ import {
   Plus,
   RefreshCw,
   Settings2,
-  SlidersHorizontal,
   TrendingUp,
   X,
 } from "lucide-react";
@@ -144,21 +144,11 @@ export default function App() {
     ping.setMode("create");
     ping.setThread(state.conversation ?? []);
   }
-  function archiveUniverse() {
-    if (!universe || universe.archiveReason === "realized") return;
-    ping.setState((prev) => ({
-      ...prev,
-      universes: prev.universes.map((u) =>
-        u.id === universe.id ? { ...u, archived: !u.archived, archiveReason: u.archived ? undefined : "manual" as const, finalProfile: u.archived ? undefined : profile } : u,
-      ),
-    }));
-    ping.setToast(
-      universe.archived
-        ? "Timeline restored"
-        : "Timeline archived. Its history is preserved.",
-    );
-    showTimelines();
-  }
+  const detailProfile = universe?.finalProfile ?? profile;
+  const aligned = datesAlign(detailProfile, profile);
+  const minimum = minimumLiquidity(selectedRows);
+  const source = universe ? comparisonSource(universe, state.universes) : undefined;
+  const [compareNotice, setCompareNotice] = useState("");
   const currentSeries = [
     {
       id: universe?.id ?? "current",
@@ -166,7 +156,7 @@ export default function App() {
       color: "#48745b",
       rows: universe ? selectedRows : baseline,
     },
-    ...(universe
+    ...(universe && aligned
       ? [
           {
             id: "current",
@@ -189,7 +179,9 @@ export default function App() {
             ? "Compare paths"
             : "Timelines";
   return (
-    <div className={`app-shell reference-layout ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
+    <div
+      className={`app-shell reference-layout ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}
+    >
       <aside className="sidebar">
         <button
           className="sidebar-collapse-toggle"
@@ -197,7 +189,11 @@ export default function App() {
           aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          {sidebarCollapsed ? (
+            <PanelLeftOpen size={18} />
+          ) : (
+            <PanelLeftClose size={18} />
+          )}
         </button>
         <button
           className="brand"
@@ -293,32 +289,39 @@ export default function App() {
           {page === "timelines" && !universe && (
             <section className="canvas-panel">
               <div className="canvas-topline">
-                  {visible.length > 0 && <BranchPicker
+                {visible.length > 0 && (
+                  <BranchPicker
                     universes={visible}
                     selected={selectedBranches}
                     onChange={setSelectedBranches}
-                  />}
+                  />
+                )}
                 <div className="toolbar-actions">
-                  <button className="text-button" onClick={() => ping.setConfirmReset(true)}>
+                  <button
+                    className="text-button"
+                    onClick={() => ping.setConfirmReset(true)}
+                  >
                     <RefreshCw size={15} /> Start over
                   </button>
-                  {visible.length > 0 && <button
-                    className="secondary-button compare-action"
-                    onClick={() => ping.setPage("compare")}
-                  >
-                    <Layers size={15} /> Compare paths
-                  </button>}
+                  {visible.length > 0 && (
+                    <button
+                      className="secondary-button compare-action"
+                      onClick={() => { setCompareNotice(""); ping.setPage("compare"); }}
+                    >
+                      <Layers size={15} /> Compare paths
+                    </button>
+                  )}
                 </div>
-                </div>
+              </div>
               <TimelineCanvas
-                  universes={mapped}
-                  colorUniverses={state.universes}
-                  profile={profile}
-                  horizon={36}
-                  revealId={ping.recentUniverseId}
-                  onSelect={selectUniverse}
-                  onReality={showBaseline}
-                  onBranch={(universe) => ping.openChat("branch", universe)}
+                universes={mapped}
+                colorUniverses={state.universes}
+                profile={profile}
+                horizon={36}
+                revealId={ping.recentUniverseId}
+                onSelect={selectUniverse}
+                onReality={showBaseline}
+                onBranch={(universe) => ping.openChat("branch", universe)}
               />
               {state.universes.some((u) => u.archived) && (
                 <div className="canvas-footer">
@@ -343,15 +346,56 @@ export default function App() {
                   </button>
                   <h1>{universe.name}</h1>
                   <p>{universe.description}</p>
+                  <p className="parent-relationship">
+                    {source?.source
+                      ? `From ${source.source.name}`
+                      : source?.missing
+                        ? "Original source unavailable"
+                        : "From Main Reality"}
+                  </p>
+                  {universe.archived && (
+                    <span className="lifecycle-text">
+                      {universe.archiveReason === "realized"
+                        ? "Realized"
+                        : "Archived"}
+                    </span>
+                  )}
                 </div>
-                <span
-                  className={`status ${!assess(profile, universe).viable ? "warning" : ""}`}
+                <button
+                  className="secondary-button"
+                  onClick={() => {
+                    ping.setCompareIds(
+                      source?.source
+                        ? [source.source.id, universe.id]
+                        : [universe.id],
+                    );
+                    setCompareNotice(
+                      source?.missing
+                        ? "The original source is unavailable. Comparing with Main Reality."
+                        : "",
+                    );
+                    ping.setPage("compare");
+                    ping.setChat(false);
+                  }}
                 >
-                  {universe.archived
-                    ? universe.archiveReason === "realized" ? "Realized" : "Archived"
-                    : assess(profile, universe).status}
-                </span>
+                  <Layers size={15} /> Compare with original
+                </button>
               </div>
+              {universe.finalProfile && (
+                <p className="snapshot-note">
+                  Historical profile last updated{" "}
+                  {new Date(detailProfile.updatedAt).toLocaleDateString()};
+                  projection starts {detailProfile.startDate}. Main Reality uses
+                  the current profile (starts {profile.startDate}).{" "}
+                  {aligned
+                    ? "Comparisons use matching dates with different profile snapshots."
+                    : "Dates differ; Main Reality overlay and dollar differences are omitted."}
+                </p>
+              )}
+              <HorizonOutcomes
+                row={selectedRows[36]}
+                baseline={aligned ? baseline[36] : undefined}
+              />
               <div className="branch-workspace">
                 <section className="chart-panel">
                   <div className="chart-toolbar">
@@ -377,7 +421,18 @@ export default function App() {
                     </span>
                     <b>
                       {money(selectedRows[ping.month][metric])}
-                      <small>{selectedRows[ping.month].date}</small>
+                      <small>
+                        {selectedRows[ping.month].date} · Month {ping.month}
+                      </small>
+                      {aligned && (
+                        <small>
+                          {signedMoney(
+                            selectedRows[ping.month][metric] -
+                              baseline[ping.month][metric],
+                          )}{" "}
+                          vs Main Reality
+                        </small>
+                      )}
                     </b>
                   </div>
                   <ProjectionChart
@@ -385,7 +440,7 @@ export default function App() {
                     metric={metric}
                     month={ping.month}
                     onMonth={ping.setMonth}
-                    profile={profile}
+                    profile={detailProfile}
                     events={universe.events}
                   />
                   <div className="chart-legend">
@@ -393,35 +448,35 @@ export default function App() {
                       <i style={{ background: "#48745b" }} />
                       {universe.name}
                     </span>
-                    <span>
-                      <i className="dashed" />
-                      Main Reality
-                    </span>
+                    {aligned && (
+                      <span>
+                        <i className="dashed" />
+                        Main Reality
+                      </span>
+                    )}
                   </div>
                   <MonthSlider ping={ping} />
-                  <Breakdown row={selectedRows[ping.month]} />
+                  <LiquidityObservation
+                    minimum={minimum}
+                    onMonth={ping.setMonth}
+                  />
+                  <Breakdown
+                    row={selectedRows[ping.month]}
+                    baseline={aligned ? baseline[ping.month] : undefined}
+                  />
                 </section>
                 <aside className="branch-summary">
                   <div className="summary-heading">
                     <GitBranch size={17} />
                     <h2>Branch Summary</h2>
                   </div>
-                  <p className="summary-description">
-                    {(universe.revisionOfId ?? universe.parentId)
-                      ? `Alternative to ${state.universes.find((u) => u.id === (universe.revisionOfId ?? universe.parentId))?.name ?? "another timeline"}`
-                      : "A possibility from your Main Reality"}
-                  </p>
-                  <div className="summary-numbers">
-                    <SummaryRow
-                      label="Net worth in 3 years"
-                      amount={selectedRows[36].netWorth}
-                    />
-                    <SummaryRow
-                      label="Savings in 3 years"
-                      amount={selectedRows[36].savings}
-                    />
-                  </div>
-                  <details className="summary-section events-disclosure">
+                  <ScenarioInputs
+                    events={universe.events}
+                    sourceEvents={source?.source?.events}
+                    profile={detailProfile}
+                    historical={!!universe.finalProfile}
+                  />
+                  <details className="summary-section events-disclosure" open>
                     <summary>
                       <span>
                         {universe.events.length} scheduled{" "}
@@ -430,46 +485,38 @@ export default function App() {
                       <ChevronDown size={16} />
                     </summary>
                     <div className="event-list">
-                      {universe.events
-                        .slice()
-                        .sort((a, b) => a.month - b.month)
-                        .map((e) => (
-                          <div className="event-item" key={e.id}>
-                            <span className="event-dot" />
-                            <button
-                              className="event-copy"
-                              onClick={() => ping.setMonth(e.month)}
-                            >
-                              <small>{monthLabel(profile, e.month)}</small>
-                              <b>{e.label}</b>
-                              <span>
-                                {eventAmountLabel(e)}{" "}
-                                · {e.estimated ? "Estimate" : "Scenario input"}
-                              </span>
-                            </button>
-                            <button
-                              className="icon-button remove-event"
-                              aria-label={`Remove ${e.label}`}
-                              onClick={() =>
-                                ping.setState((prev) => ({
-                                  ...prev,
-                                  universes: prev.universes.map((u) =>
-                                    u.id === universe.id
-                                      ? {
-                                          ...u,
-                                          events: u.events.filter(
-                                            (event) => event.id !== e.id,
-                                          ),
-                                        }
-                                      : u,
-                                  ),
-                                }))
-                              }
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                        ))}
+                      {groupEvents(universe.events).map((group) => (
+                        <details
+                          className="event-month-group"
+                          key={group.month}
+                          open
+                        >
+                          <summary>
+                            {monthLabel(detailProfile, group.month)} ·{" "}
+                            {group.events.length}{" "}
+                            {group.events.length === 1 ? "event" : "events"}
+                          </summary>
+                          {group.events.map((e) => (
+                            <div className="event-item" key={e.id}>
+                              <span className="event-dot" />
+                              <button
+                                className="event-copy"
+                                onClick={() => ping.setMonth(e.month)}
+                              >
+                                <small>
+                                  {monthLabel(detailProfile, e.month)}
+                                </small>
+                                <b>{e.label}</b>
+                                <span>
+                                  {eventAmountLabel(e)} ·{" "}
+                                  {e.estimated ? "Estimate" : "Scenario input"}
+                                </span>
+                              </button>
+
+                            </div>
+                          ))}
+                        </details>
+                      ))}
                     </div>
                   </details>
                   {milestones(selectedRows).length > 0 && (
@@ -485,7 +532,9 @@ export default function App() {
                               className="event-copy"
                               onClick={() => ping.setMonth(m.month)}
                             >
-                              <small>{monthLabel(profile, m.month)}</small>
+                              <small>
+                                {monthLabel(detailProfile, m.month)}
+                              </small>
                               <b>
                                 <Check size={11} /> {m.label}
                               </b>
@@ -505,11 +554,11 @@ export default function App() {
                         <li key={a}>{a}</li>
                       ))}
                       <li>
-                        {profile.taxRate * 100}% effective tax;{" "}
-                        {(profile.investmentReturn * 100).toFixed(0)}%
+                        {detailProfile.taxRate * 100}% effective tax;{" "}
+                        {(detailProfile.investmentReturn * 100).toFixed(0)}%
                         investment return and{" "}
-                        {(profile.savingsRate * 100).toFixed(1)}% savings APR
-                        are estimates.
+                        {(detailProfile.savingsRate * 100).toFixed(1)}% savings
+                        APR are estimates.
                       </li>
                     </ul>
                   </details>
@@ -522,60 +571,6 @@ export default function App() {
                         were kept. Review them here or ask Ping to change them.
                       </p>
                     )}
-                  <div className="summary-actions">
-                    <button
-                      className="primary-button"
-                      onClick={() => ping.openChat("branch", universe)}
-                    >
-                      <GitBranch size={15} /> Branch this timeline
-                    </button>
-                    <button
-                      className="secondary-button"
-                      onClick={() => ping.openChat("modify", universe)}
-                    >
-                      <SlidersHorizontal size={15} /> Modify assumptions
-                    </button>
-                    <details className="timeline-tools">
-                      <summary>
-                        More actions <ChevronDown size={15} />
-                      </summary>
-                      <div>
-                        <button
-                          className="secondary-button"
-                          onClick={() => {
-                            ping.setCompareIds([
-                              universe.revisionOfId ?? universe.parentId ??
-                                state.universes.find(
-                                  (u) => u.id !== universe.id,
-                                )?.id ??
-                                universe.id,
-                              universe.id,
-                            ]);
-                            ping.setPage("compare");
-                            ping.setChat(false);
-                          }}
-                        >
-                          <Layers size={15} /> Compare with original
-                        </button>
-                        <button
-                          className="text-button"
-                          onClick={() => ping.openChat("reality")}
-                        >
-                          <RefreshCw size={13} /> Update reality
-                        </button>
-                        <button
-                          className="text-button archive-button"
-                          disabled={universe.archiveReason === "realized"}
-                          onClick={archiveUniverse}
-                        >
-                          <Archive size={13} />
-                          {universe.archiveReason === "realized" ? "Completed in Main Reality" : universe.archived
-                            ? "Restore timeline"
-                            : "Archive timeline"}
-                        </button>
-                      </div>
-                    </details>
-                  </div>
                 </aside>
               </div>
             </>
@@ -609,10 +604,7 @@ export default function App() {
                       "Primary job",
                       `${money((facts.annualSalary * (1 - profile.taxRate)) / 12)}/mo`,
                     ],
-                    [
-                      "Gross annual salary",
-                      `${money(facts.annualSalary)}/yr`,
-                    ],
+                    ["Gross annual salary", `${money(facts.annualSalary)}/yr`],
                     ["Effective tax rate", `${profile.taxRate * 100}% est.`],
                   ]}
                 />
@@ -626,7 +618,7 @@ export default function App() {
                     ["Savings account", money(baseline[0].savings)],
                     [
                       "Savings interest",
-                      `${(profile.savingsRate * 100).toFixed(1)}% APR est.`,
+                      `${(detailProfile.savingsRate * 100).toFixed(1)}% APR est.`,
                     ],
                   ]}
                 />
@@ -675,7 +667,7 @@ export default function App() {
                       ],
                       [
                         "Annual return assumption",
-                        `${(profile.investmentReturn * 100).toFixed(0)}% est.`,
+                        `${(detailProfile.investmentReturn * 100).toFixed(0)}% est.`,
                       ],
                     ]}
                   />
@@ -715,6 +707,14 @@ export default function App() {
                 </button>
                 <MetricControls metric={metric} onChange={setMetric} />
               </div>
+              {compareNotice && (
+                <p className="snapshot-note">{compareNotice}</p>
+              )}
+              <p className="snapshot-note">
+                Main Reality is always included. Historical paths with different
+                start dates are excluded from the overlay; their own dates
+                appear in the table.
+              </p>
               <div className="compare-picker">
                 {state.universes.map((u) => (
                   <button
@@ -740,7 +740,11 @@ export default function App() {
                 <ProjectionChart
                   series={[
                     ...state.universes
-                      .filter((u) => ping.compareIds.includes(u.id))
+                      .filter(
+                        (u) =>
+                          ping.compareIds.includes(u.id) &&
+                          datesAlign(u.finalProfile ?? profile, profile),
+                      )
                       .map((u) => ({
                         id: u.id,
                         name: u.name,
@@ -772,6 +776,10 @@ export default function App() {
                             <th key={u.id}>
                               <i style={{ background: u.color }} />
                               {u.name}
+                              <small>
+                                {ping.allRows.get(u.id)![ping.month].date}
+                                {u.finalProfile ? " · Historical snapshot" : ""}
+                              </small>
                             </th>
                           ))}
                         <th>Main Reality</th>
@@ -871,12 +879,18 @@ export default function App() {
                 <SettingRow
                   title="Savings interest"
                   description="Applied monthly as APR / 12."
-                  value={`${(profile.savingsRate * 100).toFixed(1)}% APR`}
+                  value={`${(detailProfile.savingsRate * 100).toFixed(1)}% APR`}
                 />
                 <SettingRow
                   title="Viability rule"
-                  description="Three months of living expenses held as liquid funds; nonnegative cash flow in the final six months."
-                  value={money((facts.rent + facts.recurring + facts.variable + profile.obligations) * 3)}
+                  description="Three months of modeled living expenses is a comparison benchmark, not a requirement or certification."
+                  value={money(
+                    (facts.rent +
+                      facts.recurring +
+                      facts.variable +
+                      profile.obligations) *
+                      3,
+                  )}
                 />
               </section>
               <section className="settings-panel">
@@ -884,9 +898,7 @@ export default function App() {
                 <div className="settings-reset">
                   <div>
                     <h3>Return to the starting point</h3>
-                    <p>
-                      Restore Alex’s profile with only the main timeline.
-                    </p>
+                    <p>Restore Alex’s profile with only the main timeline.</p>
                   </div>
                   <button
                     className="secondary-button"
@@ -937,7 +949,8 @@ export default function App() {
               <>
                 <p>
                   This replaces your saved demo changes with Alex’s original
-                  financial profile and the main timeline, with no branches. Your conversation and reality updates will also be cleared.
+                  financial profile and the main timeline, with no branches.
+                  Your conversation and reality updates will also be cleared.
                 </p>
                 <div className="modal-actions">
                   <button
@@ -1279,9 +1292,12 @@ function MetricControls({
   );
 }
 function MonthSlider({ ping }: { ping: PingController }) {
+  const rows = ping.page === "timelines" ? ping.selectedRows : ping.baseline;
   return (
+    <>
+    <div className="month-shortcuts" aria-label="Select inspection month">{[[0, ping.page === "timelines" && ping.universe?.finalProfile ? "Start" : "Today"], [12, "1 year"], [24, "2 years"], [36, "3 years"]].map(([month, label]) => <button key={month} aria-pressed={ping.month === month} onClick={() => ping.setMonth(Number(month))}>{label}</button>)}</div>
     <div className="month-slider">
-      <label htmlFor="month">{ping.baseline[ping.month].date}</label>
+      <label htmlFor="month">{rows[ping.month].date}</label>
       <input
         id="month"
         aria-label="Inspect projection month"
@@ -1289,23 +1305,14 @@ function MonthSlider({ ping }: { ping: PingController }) {
         min="0"
         max="36"
         value={ping.month}
-        aria-valuetext={ping.baseline[ping.month].date}
+        aria-valuetext={`${rows[ping.month].date}, month ${ping.month} of 36`}
         onChange={(e) => ping.setMonth(Number(e.target.value))}
       />
       <span>36 months</span>
-    </div>
+    </div></>
   );
 }
-function SummaryRow({ label, amount }: { label: string; amount: number }) {
-  return (
-    <div>
-      <span>{label}</span>
-      <b>
-        <AnimatedValue value={amount} />
-      </b>
-    </div>
-  );
-}
+
 function FinancialColumn({
   title,
   subtitle,
@@ -1453,9 +1460,7 @@ function Updates({
                     {money(impact?.beforeNetWorth ?? prev.rows[36].netWorth)} <ArrowRight size={12} />{" "}
                     {money(impact?.afterNetWorth ?? next.rows[36].netWorth)}
                   </span>
-                  <span className={`status ${!next.viable ? "warning" : ""}`}>
-                    {!(impact?.beforeViable ?? prev.viable) && (impact?.afterViable ?? next.viable) ? "Newly viable" : next.status}
-                  </span>
+
                 </button>
               );
             })}
