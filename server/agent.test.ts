@@ -50,6 +50,46 @@ function completion(name: string, args: unknown, id = "call-1") {
   };
 }
 describe("financial tool dispatcher", () => {
+  it("keeps the model-selected action stable and only exposes applicable preview tools", () => {
+    const ctx = context();
+    const session = createToolSession(ctx);
+    expect(session.availableTools().map((tool) => tool.function.name)).toEqual([
+      "select_action",
+    ]);
+    session.execute("select_action", {
+      action: "create_child_timeline",
+      timelineId: ctx.selectedUniverseId,
+    });
+    const available = session.availableTools();
+    expect(
+      available.some((tool) => tool.function.name === "preview_reality_update"),
+    ).toBe(false);
+    expect(
+      available.some((tool) => tool.function.name === "apply_preview"),
+    ).toBe(false);
+    expect(
+      available.some((tool) => tool.function.name === "ask_clarification"),
+    ).toBe(false);
+    expect(() =>
+      session.execute("preview_reality_update", {
+        changes: { annualSalary: 90000 },
+      }),
+    ).toThrow(/selected action/);
+    const preview = session.execute("simulate_scenario", scenario)
+      .output as any;
+    expect(preview.operation).toBe("branch");
+    expect(
+      session
+        .availableTools()
+        .some((tool) => tool.function.name === "apply_preview"),
+    ).toBe(true);
+    expect(
+      session.execute("apply_preview", {
+        previewId: preview.previewId,
+        explanation: "The engine calculated this branch.",
+      }).final?.operation,
+    ).toBe("branch");
+  });
   it("previews an independent branch and returns engine results without mutating the snapshot", () => {
     const ctx = context(),
       before = JSON.stringify(ctx),
