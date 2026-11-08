@@ -239,19 +239,6 @@ export default function App() {
             <Settings2 size={19} />
             <span>Settings</span>
           </button>
-          <button
-            className={`nav-item ${page === "updates" ? "active" : ""}`}
-            aria-label="Updates"
-            aria-current={page === "updates" ? "page" : undefined}
-            onClick={() => {
-              ping.navigate("updates");
-              ping.setChat(false);
-            }}
-          >
-            <Bell size={19} />
-            <span>Updates</span>
-            {ping.unread > 0 && <small>{ping.unread}</small>}
-          </button>
         </nav>
         <div className="sidebar-bottom">
           <div className="workspace-health">
