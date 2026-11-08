@@ -260,10 +260,6 @@ export default function App() {
             <i />
             <div>{ping.storage}</div>
           </div>
-          <button className="help-button" onClick={() => ping.setHelp(true)}>
-            <HelpCircle size={17} />
-            <span>How Ping works</span>
-          </button>
           <div className="profile">
             <div className="avatar">AM</div>
             <div>
