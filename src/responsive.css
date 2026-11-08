@@ -878,6 +878,8 @@ body,
   padding-inline: 8px;
   font-size: 13px;
 }
+.ping-chat-controls { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.ping-dock-heading { flex-wrap: wrap; gap: 0 12px; }
 .ping-dock .text-button { min-height: 44px; font-size: 12px; }
 .ping-input-surface {
   background: #fffefb;

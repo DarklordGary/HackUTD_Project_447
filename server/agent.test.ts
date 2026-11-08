@@ -52,12 +52,15 @@ function completion(name: string, args: unknown, id = "call-1") {
 describe("financial tool dispatcher", () => {
   it("scopes discarding a plan to an archive preview without salary tools", () => {
     const ctx = context();
+    ctx.prompt = `Forget ${ctx.universes[0].name}`;
     const session = createToolSession(ctx);
     session.execute("select_action", { action: "archive_plan", reportedAs: "plan_management", requestedChanges: ["plan_status"], salaryMeaning: "none", scenarioKind: "general", timelineId: ctx.selectedUniverseId });
     const names = session.availableTools().map(t => t.function.name);
-    expect(names).toContain("preview_archive_plan");
+    expect(names).toContain("resolve_plan_reference");
+    expect(names).not.toContain("preview_archive_plan");
     expect(names).not.toContain("preview_salary_change");
     expect(names).not.toContain("preview_reality_update");
+    session.execute("resolve_plan_reference", { referenceType: "named", referenceText: ctx.universes[0].name });
     const preview = session.execute("preview_archive_plan", { timelineId: ctx.selectedUniverseId }).output as any;
     expect(preview.actualFinancesChanged).toBe(false);
     expect(ctx.universes[0].archived).toBeUndefined();
@@ -65,6 +68,35 @@ describe("financial tool dispatcher", () => {
     expect(command.operation).toBe("archive");
     expect(command.targetUniverseId).toBe(ctx.selectedUniverseId);
     expect(command.reality).toBeUndefined();
+  });
+  it("does not accept Seattle's ID for an ambiguous Denver reference in a fresh chat", () => {
+    const ctx = context();
+    const [seattle, denver, connection] = ctx.universes;
+    seattle.name = "Seattle Move"; denver.name = "Denver Move"; connection.name = "Seattle → Denver Move";
+    ctx.prompt = "forget about denver"; ctx.selectedUniverseId = undefined; ctx.activeGoalId = undefined; ctx.history = [];
+    const session = createToolSession(ctx);
+    session.execute("select_action", { action: "archive_plan", reportedAs: "plan_management", timelineId: seattle.id });
+    expect(() => session.execute("preview_archive_plan", { timelineId: seattle.id })).toThrow(/Resolve/);
+    expect(() => session.execute("resolve_plan_reference", { referenceType: "context", referenceText: "it" })).toThrow(/CURRENT/);
+    expect(() => session.execute("resolve_plan_reference", { referenceType: "named", referenceText: "Seattle" })).toThrow(/CURRENT/);
+    const found = session.execute("resolve_plan_reference", { referenceType: "named", referenceText: "denver" }).output as any;
+    expect(found.status).toBe("ambiguous");
+    expect(found.candidates.map((c: any) => c.id)).toEqual([denver.id, connection.id]);
+    expect(found.question).toContain("Denver Move");
+    expect(found.question).toContain("Seattle → Denver Move");
+    expect(session.availableTools().some(t => t.function.name === "preview_archive_plan")).toBe(false);
+    expect(() => session.execute("preview_archive_plan", { timelineId: denver.id })).toThrow(/ambiguous/);
+    expect(ctx.universes.every(u => !u.archived)).toBe(true);
+  });
+  it("resolves an explicit full plan name rather than an overlapping longer name", () => {
+    const ctx = context();
+    ctx.universes[0].name = "Seattle Move"; ctx.universes[1].name = "Denver Move"; ctx.universes[2].name = "Seattle → Denver Move";
+    ctx.prompt = "Please archive Denver Move";
+    const session = createToolSession(ctx);
+    session.execute("select_action", { action: "archive_plan", timelineId: ctx.universes[0].id });
+    const found = session.execute("resolve_plan_reference", { referenceType: "named", referenceText: "Denver Move" }).output as any;
+    expect(found.resolvedTimelineId).toBe(ctx.universes[1].id);
+    expect(() => session.execute("preview_archive_plan", { timelineId: ctx.universes[0].id })).toThrow(/unique plan ID/);
   });
   it("calculates a follow-up job date from the selected original event without moving that event", () => {
     const ctx = context();

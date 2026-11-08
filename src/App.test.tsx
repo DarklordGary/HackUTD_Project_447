@@ -53,6 +53,67 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 describe("application demo", () => {
+  it("starts a new chat without deleting finances or plans, and sends no prior conversation or goal", async () => {
+    const workspace = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    workspace.profile.annualSalary = 80000;
+    workspace.activeGoalId = workspace.universes[0].id;
+    workspace.conversation = [{ id: "old-user", role: "user", text: "What about my boat?" }, { id: "old-answer", role: "assistant", text: "The earlier boat conversation." }];
+    workspace.universes[0].messages = workspace.conversation;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
+    let view = render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: `Open ${workspace.universes[0].name}` }));
+    fireEvent.click(screen.getByRole("button", { name: "Conversation history" }));
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(saved.conversation).toEqual([]);
+    expect(saved.activeGoalId).toBeUndefined();
+    for (const key of ["profile", "universes", "notices", "changes"]) expect(saved[key]).toEqual(workspace[key]);
+    expect(screen.queryByRole("log")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Branch Summary" })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByLabelText("Your message to Ping"));
+    view.unmount(); view = render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: `Open ${workspace.universes[0].name}` }));
+    expect(screen.queryByText("The earlier boat conversation.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Timelines" }));
+    let request: any;
+    vi.mocked(fetch).mockImplementation(async (_url: any, options?: RequestInit) => {
+      request = JSON.parse(options!.body as string);
+      return { ok: true, json: async () => ({ source: "Nemotron", data: { name: "Conversation", description: "", events: [], assumptions: [], answer: "A fresh conversation." } }) } as Response;
+    });
+    fireEvent.change(screen.getByLabelText("Your message to Ping"), { target: { value: "What could I save this year?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText("A fresh conversation.");
+    expect(request.history).toEqual([]);
+    expect(request.activeGoalId).toBeUndefined();
+    expect(request.universe).toBeUndefined();
+    expect(request.profile.annualSalary).toBe(80000);
+    expect(request.universes).toHaveLength(workspace.universes.length);
+    expect(request.universes.every((u: any) => u.messages.length === 0)).toBe(true);
+  });
+  it("ignores a pending old reply after starting and sending a new chat", async () => {
+    let finishOld: ((response: Response) => void) | undefined;
+    let posts = 0;
+    vi.mocked(fetch).mockImplementation(async (url: any) => {
+      if (url === "/api/status") return { ok: true, json: async () => ({ ai: "Nemotron" }) } as Response;
+      if (++posts === 1) return new Promise<Response>(resolve => { finishOld = resolve; });
+      return { ok: true, json: async () => ({ source: "Nemotron", data: { name: "Conversation", description: "", events: [], assumptions: [], answer: "Reply in the new chat." } }) } as Response;
+    });
+    render(<App />);
+    const before = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    fireEvent.change(screen.getByLabelText("Your message to Ping"), { target: { value: "My actual salary is now $90,000." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    fireEvent.click(screen.getByRole("button", { name: "New chat" }));
+    fireEvent.change(screen.getByLabelText("Your message to Ping"), { target: { value: "Let's discuss savings." } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText("Reply in the new chat.");
+    await act(async () => { finishOld!({ ok: true, json: async () => ({ source: "Nemotron", data: { name: "Reality", description: "", events: [], assumptions: [], operation: "reality", reality: { annualSalary: 90000 } } }) } as Response); });
+    const after = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(after.profile).toEqual(before.profile);
+    expect(after.universes).toEqual(before.universes);
+    expect(after.conversation).toHaveLength(2);
+    expect(after.conversation.at(-1).text).toBe("Reply in the new chat.");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
   it("discards a boat conversationally without replaying the prior actual raise", async () => {
     const workspace = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     const boat = makeUniverse("fishing boat", "A cash purchase", [{ id: "boat-price", kind: "expense", label: "Boat", month: 1, amount: 12000, estimated: false }]);

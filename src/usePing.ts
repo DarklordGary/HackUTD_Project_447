@@ -288,6 +288,22 @@ export function usePing() {
       }
     }
   }
+  function startNewChat() {
+    workspaceGeneration.current++;
+    sending.current = false;
+    retry.current = null;
+    setState(prev => ({ ...prev, conversation: [], activeGoalId: undefined }));
+    setThread([]);
+    setInput("");
+    setRequestError("");
+    setToolSteps([]);
+    setBusy(false);
+    setSelected(null);
+    setRecentUniverseId(null);
+    setMode("create");
+    setChat(true);
+    setToast("New chat. Your finances and saved plans are unchanged.");
+  }
   function resetWorkspace() {
     const next = upgradeWorkspace(seed());
     workspaceGeneration.current++;
@@ -369,6 +385,7 @@ export function usePing() {
     send,
     download,
     resetWorkspace,
+    startNewChat,
   };
 }
 export type PingController = ReturnType<typeof usePing>;

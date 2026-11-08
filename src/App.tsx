@@ -17,6 +17,7 @@ import {
   MessageCircle,
   PanelLeftClose,
   PanelLeftOpen,
+  Plus,
   RefreshCw,
   Settings2,
   SlidersHorizontal,
@@ -1165,10 +1166,20 @@ function PingComposer({ ping }: { ping: PingController }) {
       style={visualViewport ? ({ "--visual-height": `${visualViewport.height}px` } as CSSProperties) : undefined}>
       <div className="ping-dock-heading">
         <span><Parrot size={22} /><strong>Ping</strong></span>
+        <div className="ping-chat-controls">
         {!!ping.thread.length && <button type="button" className="text-button" aria-expanded={historyOpen} aria-controls="ping-conversation"
           onClick={() => setHistoryOpen(open => !open)}>
           <MessageCircle size={15} /> {historyOpen ? "Hide history" : "Conversation history"}
         </button>}
+        <button type="button" className="text-button" title="Clear this conversation and plan focus. Keep saved plans and finances."
+          onClick={() => {
+            ping.startNewChat();
+            setHistoryOpen(false);
+            inputRef.current?.focus({ preventScroll: true });
+          }}>
+          <Plus size={15} /> New chat
+        </button>
+        </div>
       </div>
       {showBubble && <div className="ping-reply-bubble" aria-label="Previous Ping response">
         <span>{latestReply.text}</span>

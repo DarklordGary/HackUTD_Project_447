@@ -210,6 +210,10 @@ const tools = {
       "Preview an actual life update reported by the user and its effects on all universes. Does not save. Debt payoff consumes cash. For a completed move provide exact timelineId and groupId in changes.move; record actual costs only, preserve actual salary, and archive only that plan. Read timelines to resolve references; clarify materially ambiguous versions. Salary changes accept delta/absolute/percent semantics.",
     schema: z.object({ changes: realitySchema }).strict(),
   },
+  resolve_plan_reference: {
+    description: "Resolve the plan the CURRENT user named before archiving. referenceText must be an exact phrase from the CURRENT message (e.g. Denver, Denver Move, or boat), not a guessed timeline ID. named searches saved names/destinations and returns all matches. context is only for an explicit pronoun such as it/that plan when a real active goal exists. Multiple named matches require clarification; an active plan never overrides a named reference.",
+    schema: z.object({ referenceType: z.enum(["named", "context"]), referenceText: z.string().min(1).max(150) }).strict(),
+  },
   preview_archive_plan: {
     description: "Preview discarding an existing hypothetical plan. Reversibly archives exactly that timeline, keeps its history and other plans, and leaves actual finances unchanged. Use for forget the boat. Clarify if the referenced plan is ambiguous. Completed real-life moves cannot be undone this way.",
     schema: z.object({ timelineId: z.string().min(1).max(100) }).strict(),
@@ -276,6 +280,7 @@ export function createToolSession(context: AgentContext) {
   const summaries = new Map<string, string>();
   const previews = new Map<string, Interpretation>(),
     observed = new Set<string>();
+  let archiveResolution: { candidates: Universe[]; resolvedId?: string } | undefined;
   let readFinancialData = false;
   let validationErrors = 0;
   let selectedAction:
@@ -325,12 +330,12 @@ export function createToolSession(context: AgentContext) {
           throw new Error(
             "An independent timeline starts from Main Reality. Call select_action again with action=create_independent_timeline and OMIT timelineId. Main Reality has no timeline ID.",
           );
-        const targetId = operation === "create"
+        const targetId = operation === "create" || operation === "archive"
           ? undefined
           : action.action === "realize_plan" && snapshot.activeGoalId && action.referenceSource !== "explicit_plan"
             ? snapshot.activeGoalId : action.timelineId ?? snapshot.selectedUniverseId;
         const target = targetId ? timeline(targetId) : undefined;
-        if (["branch", "modify", "archive"].includes(operation) && !target)
+        if (["branch", "modify"].includes(operation) && !target)
           throw new Error(
             "Select the parent timeline ID, or choose create_independent_timeline.",
           );
@@ -344,7 +349,7 @@ export function createToolSession(context: AgentContext) {
             salaryMeaning: action.salaryMeaning, effectiveTiming: action.effectiveTiming,
             branchOrigin: action.action === "create_alternative_from_reality" ? "current" : targetId ?? "current",
             nextTool:
-              operation === "archive" ? "preview_archive_plan" : operation === "reality"
+              operation === "archive" ? "resolve_plan_reference" : operation === "reality"
                 ? action.action === "realize_plan" ? "preview_move_realization" : "preview_salary_change (for raise) or preview_reality_update (other actual facts)"
                 : action.action === "create_alternative_from_reality" ? "preview_plan_revision"
                 : ["create", "branch", "modify"].includes(operation)
@@ -353,7 +358,7 @@ export function createToolSession(context: AgentContext) {
                     ? "answer_question"
                     : "ask_clarification",
             instruction:
-              "The user has already requested this action. Use its next tool; do not ask for confirmation or for existing data/IDs provided here. Preserve all other finances unless the user changed them.",
+              operation === "archive" ? "Resolve the exact named reference from the current message before any archive preview. A proposed ID from select_action has not been accepted as a resolved target. If several plans match, ask which one; do not choose the first or use an unrelated active plan." : "The user has already requested this action. Use its next tool; do not ask for confirmation or for existing data/IDs provided here. Preserve all other finances unless the user changed them.",
             selectedTimelineId: targetId,
             profile: snapshot.profile,
             timeline: target
@@ -690,10 +695,47 @@ export function createToolSession(context: AgentContext) {
           },
         };
       }
+      case "resolve_plan_reference": {
+        if (selectedAction?.operation !== "archive") throw new Error("Plan-reference resolution is required for archive_plan.");
+        if (previews.size) throw new Error("The archive preview is already prepared; finish that preview.");
+        const { referenceType, referenceText } = args as z.infer<typeof tools.resolve_plan_reference.schema>;
+        const normalize = (text: string) => text.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim().replace(/\s+/g, " ");
+        const query = normalize(referenceText);
+        const contains = (text: string, phrase: string) => (` ${normalize(text)} `).includes(` ${phrase} `);
+        if (!query || !contains(snapshot.prompt, query)) throw new Error("Quote the named reference from the CURRENT user message. Do not invent or borrow a different plan name from history.");
+        const active = snapshot.universes.filter(u => !u.archived);
+        let candidates: Universe[];
+        if (referenceType === "context") {
+          if (!["it", "that", "this", "that plan", "this plan", "that timeline", "this timeline", "that idea", "this idea"].includes(query)) throw new Error("Context references must quote an actual pronoun. Resolve named cities or purchases using referenceType=named.");
+          const remainingWords = normalize(snapshot.prompt).split(" ").filter(word => !query.split(" ").includes(word));
+          const namedElsewhere = active.some(u => remainingWords.some(word => contains(u.name, word) || u.events.some(e => e.destination && contains(e.destination, word))));
+          if (namedElsewhere) throw new Error("The current message also contains a named plan reference. Use referenceType=named rather than overriding it with the active plan.");
+          const focus = snapshot.activeGoalId ?? snapshot.selectedUniverseId;
+          candidates = active.filter(u => u.id === focus);
+          if (!candidates.length) throw new Error("There is no active plan in this new conversation. Resolve the user's named reference, or ask which saved plan they mean.");
+        } else {
+          const exact = active.filter(u => normalize(u.name) === query);
+          const containedNames = active.filter(u => contains(query, normalize(u.name)));
+          const fullNames = containedNames.filter(u => !containedNames.some(other => other.id !== u.id && contains(other.name, normalize(u.name))));
+          const words = query.split(" ");
+          candidates = exact.length ? exact : fullNames.length ? fullNames : active.filter(u =>
+            words.some(word => contains(u.name, word) || u.events.some(e => e.destination && contains(e.destination, word)))
+          );
+        }
+        const resolvedId = candidates.length === 1 ? candidates[0].id : undefined;
+        archiveResolution = { candidates, resolvedId };
+        selectedAction.timelineId = resolvedId;
+        return { output: { reference: referenceText, status: resolvedId ? "resolved" : candidates.length ? "ambiguous" : "not_found",
+          candidates: candidates.map(u => ({ id: u.id, name: u.name, parentId: u.parentId })), resolvedTimelineId: resolvedId,
+          nextTool: resolvedId ? "preview_archive_plan" : "ask_clarification",
+          question: candidates.length > 1 ? `Which plan should I set aside: ${candidates.map(u => `"${u.name}"`).join(" or ")}?` : candidates.length === 0 ? "I couldn't find a saved plan matching that reference. Which plan did you mean?" : undefined,
+        } };
+      }
       case "preview_archive_plan": {
         if (selectedAction?.operation !== "archive") throw new Error("Select archive_plan before previewing a discarded plan.");
         const { timelineId } = args as z.infer<typeof tools.preview_archive_plan.schema>;
-        if (selectedAction.timelineId !== timelineId) throw new Error("Use the exact plan ID selected for this request.");
+        if (!archiveResolution?.resolvedId) throw new Error("Resolve the current named plan reference first. An ambiguous reference cannot be archived.");
+        if (archiveResolution.resolvedId !== timelineId || selectedAction.timelineId !== timelineId) throw new Error("Use only the unique plan ID returned by resolve_plan_reference.");
         timeline(timelineId);
         const data = interpretationSchema.parse({ ...blank(), operation: "archive", targetUniverseId: timelineId, operationId: snapshot.operationId ?? crypto.randomUUID() });
         const updated = applyArchive({ version: 1, profile: snapshot.profile, universes: snapshot.universes, notices: [], changes: [], activeGoalId: snapshot.activeGoalId }, data);
@@ -756,7 +798,13 @@ export function createToolSession(context: AgentContext) {
     if (operation === "clarify" || validationErrors >= 2)
       names.add("ask_clarification");
     if (operation === "answer") names.add("answer_question");
-    if (operation === "archive") names.add("preview_archive_plan");
+    if (operation === "archive") {
+      names.clear();
+      names.add("ask_clarification");
+      if (!previews.size) names.add("resolve_plan_reference");
+      if (archiveResolution?.resolvedId) names.add("preview_archive_plan");
+      if (archiveResolution && !archiveResolution.candidates.length) names.add("answer_question");
+    }
     if (operation === "reality") {
       if (selectedAction.action === "realize_plan") { names.add("preview_move_realization"); names.add("preview_dated_move_realization"); }
       else if (selectedAction.requestedChanges?.length === 1 && selectedAction.requestedChanges[0] === "salary") {
@@ -811,13 +859,20 @@ export function createToolSession(context: AgentContext) {
   return {
     execute,
     availableTools,
+    isArchiving: () => selectedAction?.operation === "archive",
     recordToolError: () => {
       validationErrors++;
     },
   };
 }
 
+const ARCHIVE_PROMPT = `You are resolving a user's request to discard a saved hypothetical plan. This phase cannot change actual finances.
+First call resolve_plan_reference. Set referenceType=named and referenceText to the actual name/city/purchase phrase quoted from currentRequest: for "forget about Denver" use "Denver"; for "forget the boat" use "boat"; for "Forget Denver Move, the standalone plan" use "Denver Move". Do not copy an unrelated ID or name from the list. A fresh chat has no active goal; never default to the first plan.
+If resolution is ambiguous, finish with ask_clarification using the supplied question listing the matching plans. Do not guess, choose a parent, or narrow the reference using words absent from currentRequest. If a named reference matches multiple plans, selection of an unrelated active plan does not break the tie. If status is not_found and you passed an entire instruction instead of a plan reference, retry with the actual named entity. If no matching plan exists, ask a focused clarification or acknowledge dropping the topic without claiming any archive occurred.
+Only when status=resolved call preview_archive_plan with resolvedTimelineId. Then finish with apply_preview alone using the returned previewId. Preserve every other plan and all actual financial facts. No financial calculations or salary clarifications are relevant to this operation.`;
+
 const ACTION_PROMPT = `You are Ping's intent selector. Read currentRequest in the workspace data. Classify its SPEECH ACT before considering its financial topic: conditional/wish/counterfactual requests are hypothetical; assertions about changes that happened in real life are actual. A past-tense verb inside a hypothetical is still hypothetical. Never turn a "what if" salary request into an actual update merely because it says "went up".
+Plan-reference resolution is mandatory for archive_plan: select_action's timelineId is only a suggestion, not authority to archive. Call resolve_plan_reference with the literal named entity from currentRequest. "forget about Denver" can match both "Denver Move" and "Seattle → Denver Move": ask which; "Seattle Move" does not match. A new chat has no active goal; never use the first listed plan as a default. An explicit full plan name can uniquely identify it, but a broad city name may match multiple plans. Do not narrow an ambiguous reference using an invented name absent from the current request.
 Plan-management requests are a separate speech act. "Forget the boat", "scrap that purchase plan", or "I'm no longer considering the boat" => reportedAs=plan_management, requestedChanges=[plan_status], salaryMeaning=none, action=archive_plan with the exact boat timelineId. This neither buys a boat nor changes actual income. Resolve the named plan from availableTimelines rather than assuming the active goal if they differ. Ask which version only when genuinely ambiguous. If there is no saved matching plan and the user is dropping a topic, acknowledge it read-only without revisiting earlier salary questions.
 Minimal pairs:
 "My salary actually went up by $8,000 a year." => actual, salary, update_real_life.
@@ -845,7 +900,7 @@ scenarioKind describes the current modification, not its setting: a job after a 
 Financial data and exact app IDs are provided; never invent baseline IDs or ask the user for app IDs. Main Reality has no timelineId. Use active_goal for a discussed plan, explicit_plan only for an explicit different reference. Return select_action; do not calculate or write financial outcomes.`;
 
 const SYSTEM_PROMPT = `You are Ping, a conversational financial scenario assistant. The final user message authorizes this turn. Earlier hypothetical choices never become actual facts by implication, and earlier changes must not be replayed. A selected universe and legacy mode are context, never restrictions on reporting actual life changes.
-Keep the selected action for the turn and use only its offered tools. For a discarded plan use preview_archive_plan then apply_preview; do not ask about unrelated previous financial inputs. Actual salary reports use preview_salary_change, then apply_preview. Delta means an annual gross increase; absolute means a total annual salary; percent uses a stated baseline. "My salary actually went up by $8,000 a year" means an actual delta of 8000. Do not repeat an earlier move delay. Actual moves use preview_move_realization (now by default) or preview_dated_move_realization for an explicitly stated past date. Resolve one plan, prefer the durable active goal, clarify genuinely ambiguous versions, and never promote its hypothetical salary.
+Keep the selected action for the turn and use only its offered tools. For a discarded plan first resolve_plan_reference using a verbatim named reference from the current request, then preview_archive_plan only if uniquely resolved, then apply_preview. If multiple plans match, ask the provided clarification and do not archive anything; do not ask about unrelated previous financial inputs. Actual salary reports use preview_salary_change, then apply_preview. Delta means an annual gross increase; absolute means a total annual salary; percent uses a stated baseline. "My salary actually went up by $8,000 a year" means an actual delta of 8000. Do not repeat an earlier move delay. Actual moves use preview_move_realization (now by default) or preview_dated_move_realization for an explicitly stated past date. Resolve one plan, prefer the durable active goal, clarify genuinely ambiguous versions, and never promote its hypothetical salary.
 For a revised move plan use preview_plan_revision. Include EVERY change in the current request. If the user asks for higher pay and a delay, include salaryMode, salaryValue AND salaryMonth as well as delayMonths. If a material date is unspecified, disclose a reasonable scenario assumption or clarify; do not silently omit the raise. Calendar months are indexed from the profile's opening month (month 0); use tools for dates and calculations. For a child job after a move use preview_followup_salary with the original event ID and monthsAfter, so the tool computes its exact month. A child continuing after a move adds its later job without rescheduling the existing move. Unrelated new possibilities start from actual reality even when another plan is selected. A shared destination is not a financial merge; the renderer follows the model-selected origin.
 Use the specialized move/purchase tools when offered. For generic simulation, additions are new events; replacements/removals use exact existing IDs. Preserve unrelated events and assumptions. A second later-city move is a new group, whereas delaying the same move reschedules its linked costs, rent, local expenses and refunds together. Never put salary in a move group.
 All balance arithmetic, affordability, debt and reserve claims must come from tools. Salary is annual gross; rent/contribution are monthly replacement values; monthly-expense is an additive recurring delta; income/expense are one-time net cash. Distinguish delta, absolute and percentage salary assumptions and prerequisite/additional/counterfactual purposes. Literal X/Y amounts require clarification. Use disclosed scenario estimates for missing purchase price/running costs or ask a focused question. Financing requires explicit user facts or clearly disclosed scenario assumptions; cash shortfall is not loan debt. Financed purchases originate a liability and debit only the down payment. Purchased asset value, depreciation and inflation are excluded.
@@ -877,7 +932,7 @@ export async function runNemotronAgent(
   const complete = createNemotronCompletion({ ...env, NEMOTRON_TURN_ID: context.operationId ?? crypto.randomUUID() }, fetcher);
   for (let round = 0; round < 8; round++) {
     const availableTools = session.availableTools();
-    messages[0].content = (availableTools.some(t => t.function.name === "select_action") ? ACTION_PROMPT : SYSTEM_PROMPT) + workspaceContext;
+    messages[0].content = (availableTools.some(t => t.function.name === "select_action") ? ACTION_PROMPT : session.isArchiving() ? ARCHIVE_PROMPT : SYSTEM_PROMPT) + workspaceContext;
     const raw = await complete(messages as ChatCompletionMessageParam[], {
       tools: availableTools,
       toolChoice: "required",
