@@ -27,8 +27,6 @@ import { usePing } from "./usePing";
 import type { PingController } from "./usePing";
 import type { Universe } from "./types";
 import { assess, milestones, money, monthLabel, simulate } from "./engine";
-import { seed } from "./seed";
-import { upgradeWorkspace } from "./workspace-upgrade";
 import {
   AnimatedValue,
   Breakdown,
@@ -293,23 +291,24 @@ export default function App() {
         >
           {page === "timelines" && !universe && (
             <section className="canvas-panel">
-              {visible.length > 0 && (
-                <div className="canvas-topline">
-                  <BranchPicker
+              <div className="canvas-topline">
+                  {visible.length > 0 && <BranchPicker
                     universes={visible}
                     selected={selectedBranches}
                     onChange={setSelectedBranches}
-                  />
+                  />}
                 <div className="toolbar-actions">
-                  <button
+                  <button className="text-button" onClick={() => ping.setConfirmReset(true)}>
+                    <RefreshCw size={15} /> Start over
+                  </button>
+                  {visible.length > 0 && <button
                     className="secondary-button compare-action"
                     onClick={() => ping.setPage("compare")}
                   >
                     <Layers size={15} /> Compare paths
-                  </button>
+                  </button>}
                 </div>
                 </div>
-              )}
               <TimelineCanvas
                   universes={mapped}
                   colorUniverses={state.universes}
@@ -937,7 +936,7 @@ export default function App() {
               <>
                 <p>
                   This replaces your saved demo changes with Alex’s original
-                  financial profile and the main timeline, with no branches.
+                  financial profile and the main timeline, with no branches. Your conversation and reality updates will also be cleared.
                 </p>
                 <div className="modal-actions">
                   <button
@@ -949,14 +948,10 @@ export default function App() {
                   <button
                     className="primary-button"
                     onClick={() => {
-                      const next = upgradeWorkspace(seed());
-                      ping.setState(next);
-                      ping.setCompareIds(
-                        next.universes.slice(0, 2).map((u) => u.id),
-                      );
-                      ping.setConfirmReset(false);
-                      showTimelines();
-                      ping.setToast("Demo reset");
+                      ping.resetWorkspace();
+                      setSelectedBranches([]);
+                      setShowArchived(false);
+                      setBaselineChart(false);
                     }}
                   >
                     Reset demo
@@ -1106,6 +1101,7 @@ function BranchPicker({
 function PingComposer({ ping }: { ping: PingController }) {
   const { chat, mode } = ping;
   const [historyOpen, setHistoryOpen] = useState(false);
+  useEffect(() => { if (!ping.thread.length) setHistoryOpen(false); }, [ping.thread.length]);
   const latestReply = [...ping.thread].reverse().find(m => m.role === "assistant");
   const currentReply = ping.thread.at(-1)?.role === "assistant" ? ping.thread.at(-1) : undefined;
   const latestRequest = [...ping.thread].reverse().find(m => m.role === "user");

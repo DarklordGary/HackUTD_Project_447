@@ -50,6 +50,58 @@ function completion(name: string, args: unknown, id = "call-1") {
   };
 }
 describe("financial tool dispatcher", () => {
+  it("scopes discarding a plan to an archive preview without salary tools", () => {
+    const ctx = context();
+    const session = createToolSession(ctx);
+    session.execute("select_action", { action: "archive_plan", reportedAs: "plan_management", requestedChanges: ["plan_status"], salaryMeaning: "none", scenarioKind: "general", timelineId: ctx.selectedUniverseId });
+    const names = session.availableTools().map(t => t.function.name);
+    expect(names).toContain("preview_archive_plan");
+    expect(names).not.toContain("preview_salary_change");
+    expect(names).not.toContain("preview_reality_update");
+    const preview = session.execute("preview_archive_plan", { timelineId: ctx.selectedUniverseId }).output as any;
+    expect(preview.actualFinancesChanged).toBe(false);
+    expect(ctx.universes[0].archived).toBeUndefined();
+    const command = session.execute("apply_preview", { previewId: preview.previewId, explanation: "Discarded." }).final!;
+    expect(command.operation).toBe("archive");
+    expect(command.targetUniverseId).toBe(ctx.selectedUniverseId);
+    expect(command.reality).toBeUndefined();
+  });
+  it("calculates a follow-up job date from the selected original event without moving that event", () => {
+    const ctx = context();
+    const parent = ctx.universes[0];
+    const session = createToolSession(ctx);
+    session.execute("select_action", { reportedAs: "hypothetical", requestedChanges: ["salary"], salaryMeaning: "annual_total", scenarioKind: "general", action: "create_child_timeline", timelineId: parent.id });
+    const preview = session.execute("preview_followup_salary", { timelineId: parent.id, referenceEventId: parent.events[0].id, monthsAfter: 2, salaryMode: "absolute", salaryValue: 95000, name: "Job after move" }).output as any;
+    const command = session.execute("apply_preview", { previewId: preview.previewId, explanation: "Calculated follow-up." }).final!;
+    expect(command.events[0].month).toBe(parent.events[0].month + 2);
+    expect(command.events).toHaveLength(1);
+    expect(command.events[0].replaceEventId).toBeUndefined();
+    expect(command.branchOrigin).toBeUndefined();
+  });
+  it("requires an actual reported change to use a reality action, even with a selected hypothetical", () => {
+    const session = createToolSession(context());
+    expect(() => session.execute("select_action", {
+      reportedAs: "actual", requestedChanges: ["salary"], scenarioKind: "general",
+      action: "create_alternative_from_reality", timelineId: context().selectedUniverseId,
+    })).toThrow(/actual/);
+    session.execute("select_action", { reportedAs: "actual", requestedChanges: ["salary"], salaryMeaning: "annual_increase", effectiveTiming: "now", scenarioKind: "general", action: "update_real_life" });
+    const tools = session.availableTools().map(t => t.function.name);
+    expect(tools).toContain("preview_salary_change");
+    expect(tools).not.toContain("preview_plan_revision");
+    expect(tools).not.toContain("preview_dated_salary_change");
+    expect(() => session.execute("preview_reality_update", { changes: { effectiveDate: "2099-01-01", salaryChange: { mode: "delta", value: 8000, baseline: 72000, purpose: "prerequisite" } } })).toThrow(/effective now/);
+  });
+  it("rejects a delay-only preview when the model identified a raise and a delay", () => {
+    const ctx = context();
+    ctx.universes[0].events = ctx.universes[0].events.map(e => ({ ...e, groupId: "move" }));
+    const session = createToolSession(ctx);
+    session.execute("select_action", { reportedAs: "hypothetical", requestedChanges: ["salary", "move_timing"], salaryMeaning: "annual_increase", effectiveTiming: "now", scenarioKind: "move", action: "create_alternative_from_reality", timelineId: ctx.selectedUniverseId });
+    expect(() => session.execute("preview_plan_revision", { timelineId: ctx.selectedUniverseId, groupId: "move", delayMonths: 4, name: "Incomplete" })).toThrow(/salary change/);
+    expect(() => session.execute("preview_plan_revision", { timelineId: ctx.selectedUniverseId, groupId: "move", delayMonths: 4, name: "Wrong salary semantics", salaryMode: "absolute", salaryValue: 15000, salaryMonth: 1 })).toThrow(/mode=delta/);
+    const preview = session.execute("preview_plan_revision", { timelineId: ctx.selectedUniverseId, groupId: "move", delayMonths: 4, name: "Complete", salaryMode: "delta", salaryValue: 15000, salaryMonth: 1 }).output as any;
+    const command = session.execute("apply_preview", { previewId: preview.previewId, explanation: "Calculated." }).final!;
+    expect(command.events.find(e => e.kind === "salary")?.salary?.value).toBe(15000);
+  });
   it("preserves the model's explicit reality-origin revision choice through preview and finish", () => {
     const ctx = context();
     const original = structuredClone(ctx.universes[0]);

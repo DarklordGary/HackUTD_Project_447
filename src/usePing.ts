@@ -7,9 +7,10 @@ import {
   readState,
   STORAGE_KEY,
   applyReality,
+  applyArchive,
 } from "./state";
 import { simulate } from "./engine";
-import { colors, id, makeUniverse } from "./seed";
+import { colors, id, makeUniverse, seed } from "./seed";
 import { interpret } from "./interpreter";
 import { connectPersistence } from "./sync";
 import { upgradeWorkspace } from "./workspace-upgrade";
@@ -41,6 +42,7 @@ export function usePing() {
   const syncRef = useRef<ReturnType<typeof connectPersistence> | null>(null);
   const latestState = useRef(state);
   const sending = useRef(false);
+  const workspaceGeneration = useRef(0);
   const retry = useRef<{ prompt: string; operationId: string } | null>(null);
   useEffect(() => setState(upgradeWorkspace), []);
   useEffect(() => {
@@ -125,6 +127,7 @@ export function usePing() {
     const prompt = text.trim();
     if (!prompt || sending.current) return;
     sending.current = true;
+    const generation = workspaceGeneration.current;
     const operationId = retry.current?.prompt === prompt ? retry.current.operationId : id();
     retry.current = { prompt, operationId };
     setRequestError("");
@@ -147,6 +150,7 @@ export function usePing() {
         state.universes,
         history, operationId, state.activeGoalId,
       );
+      if (generation !== workspaceGeneration.current) return;
       if (
         latestState.current.profile !== state.profile ||
         latestState.current.universes !== state.universes ||
@@ -177,7 +181,16 @@ export function usePing() {
       }
       if (state.appliedOperationIds?.includes(operationId)) { setThread(state.conversation ?? conversation); return; }
       const operation = data.operation ?? mode;
-      if (operation === "reality") {
+      if (operation === "archive") {
+        const result = applyArchive(state, { ...data, operationId: data.operationId ?? operationId });
+        const messages: Message[] = [...conversation, { id: id(), role: "assistant", text: result.explanation }];
+        setState({ ...result.state, conversation: messages.slice(-20) });
+        setThread(messages);
+        if (selected === data.targetUniverseId) setSelected(null);
+        setPage("timelines");
+        setMode("create");
+        setToast("Plan set aside. History preserved.");
+      } else if (operation === "reality") {
         const result = applyReality(state, { ...data, operationId: data.operationId ?? operationId }, prompt);
         const messages: Message[] = [...conversation, { id: id(), role: "assistant", text: result.explanation }];
         setState({ ...result.state, conversation: messages.slice(-20), activeGoalId: data.reality?.move ? undefined : state.activeGoalId });
@@ -260,6 +273,7 @@ export function usePing() {
         );
       }
     } catch (error) {
+      if (generation !== workspaceGeneration.current) return;
       setThread(conversation);
       setRequestError(
         error instanceof Error
@@ -268,9 +282,34 @@ export function usePing() {
       );
       setInput(prompt);
     } finally {
-      sending.current = false;
-      setBusy(false);
+      if (generation === workspaceGeneration.current) {
+        sending.current = false;
+        setBusy(false);
+      }
     }
+  }
+  function resetWorkspace() {
+    const next = upgradeWorkspace(seed());
+    workspaceGeneration.current++;
+    sending.current = false;
+    retry.current = null;
+    latestState.current = next;
+    setState(next);
+    setThread([]);
+    setInput("");
+    setRequestError("");
+    setToolSteps([]);
+    setBusy(false);
+    setSelected(null);
+    setRecentUniverseId(null);
+    setCompareIds([]);
+    setMode("create");
+    setMonth(12);
+    setPage("timelines");
+    setChat(false);
+    setConfirmReset(false);
+    setHelp(false);
+    setToast("Back to Main Reality. Ready to start fresh.");
   }
   function download() {
     const rows = selectedRows;
@@ -329,6 +368,7 @@ export function usePing() {
     openUniverse,
     send,
     download,
+    resetWorkspace,
   };
 }
 export type PingController = ReturnType<typeof usePing>;

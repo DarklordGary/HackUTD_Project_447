@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { makeUniverse } from "./seed";
 import { seedExamples as seed } from "./seed-fixtures.test-support";
-import { applyReality, rescheduleGroup } from "./state";
+import { applyReality, applyArchive, rescheduleGroup } from "./state";
 import { assess, simulate, salaryTarget, loanPayment } from "./engine";
 import { upgradeWorkspace } from "./workspace-upgrade";
 import { workspaceSchema } from "./contracts";
@@ -27,6 +27,24 @@ export function journeyFixture() {
 const blank = { name: "Reality", description: "", events: [], assumptions: [] };
 
 describe("conversational lifecycle", () => {
+  it("archives one discarded plan exactly once without changing reality or other plans", () => {
+    const { state, original, child } = journeyFixture();
+    state.universes = [original, child]; state.activeGoalId = child.id;
+    const before = structuredClone(state);
+    const command = { ...blank, operation: "archive" as const, operationId: "discard", targetUniverseId: child.id };
+    const result = applyArchive(state, command);
+    expect(result.state.profile).toBe(state.profile);
+    expect(result.state.changes).toBe(state.changes);
+    expect(result.state.notices).toBe(state.notices);
+    expect(result.state.universes[0]).toEqual(before.universes[0]);
+    expect(result.state.universes[1]).toMatchObject({ archived: true, archiveReason: "manual", finalProfile: before.profile });
+    expect(result.state.universes[1].events).toEqual(before.universes[1].events);
+    expect(result.state.activeGoalId).toBeUndefined();
+    expect(applyArchive(result.state, command).state).toBe(result.state);
+    expect(() => applyArchive(state, { ...command, targetUniverseId: "missing" })).toThrow(/available/);
+    state.universes[1].archiveReason = "realized";
+    expect(() => applyArchive(state, command)).toThrow(/actual events/);
+  });
   it("runs all five state transitions with actual Y, exact-once realization and independent boat financing", () => {
     const { state, original, child } = journeyFixture();
     expect(state.universes).toHaveLength(0);

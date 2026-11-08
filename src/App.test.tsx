@@ -53,6 +53,71 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 describe("application demo", () => {
+  it("discards a boat conversationally without replaying the prior actual raise", async () => {
+    const workspace = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    const boat = makeUniverse("fishing boat", "A cash purchase", [{ id: "boat-price", kind: "expense", label: "Boat", month: 1, amount: 12000, estimated: false }]);
+    workspace.universes.push(boat);
+    workspace.profile.annualSalary = 80000;
+    workspace.activeGoalId = boat.id;
+    workspace.conversation = [{ id: "prior", role: "assistant", text: "Your actual salary is now $80,000." }];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
+    vi.mocked(fetch).mockImplementation(async (url: any) => ({ ok: true, json: async () => url === "/api/status" ? { ai: "Nemotron" } : {
+      source: "Nemotron", tools: [], data: { name: "Discard plan", description: "", events: [], assumptions: [], operation: "archive", targetUniverseId: boat.id, operationId: "discard-boat" },
+    } }) as Response);
+    const view = render(<App />);
+    fireEvent.change(screen.getByLabelText("Your message to Ping"), { target: { value: "forget the boat" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    await screen.findByText(/I've set aside fishing boat/);
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(saved.profile).toEqual(workspace.profile);
+    expect(saved.changes).toEqual(workspace.changes);
+    expect(saved.universes).toHaveLength(workspace.universes.length);
+    expect(saved.universes.find((u: any) => u.id === boat.id).archived).toBe(true);
+    expect(saved.activeGoalId).toBeUndefined();
+    expect(saved.conversation.at(-1).text).toContain("real finances are unchanged");
+    view.unmount(); render(<App />);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).universes.find((u: any) => u.id === boat.id).archiveReason).toBe("manual");
+  });
+  it("starts over from the map and ignores an old pending response after reset", async () => {
+    let finish: ((response: Response) => void) | undefined;
+    vi.mocked(fetch).mockImplementation(async (url: any) => {
+      if (url === "/api/status") return { ok: true, json: async () => ({ ai: "Nemotron" }) } as Response;
+      return new Promise<Response>(resolve => { finish = resolve; });
+    });
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    saved.profile.annualSalary = 112000;
+    saved.conversation = [{ id: "old", role: "assistant", text: "A previous experiment" }];
+    saved.activeGoalId = saved.universes[0].id;
+    saved.appliedOperationIds = ["old-operation"];
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+    const view = render(<App />);
+    fireEvent.click(screen.getByRole("button", { name: "Conversation history" }));
+    fireEvent.change(screen.getByLabelText("Your message to Ping"), { target: { value: "Can I move to New York?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(screen.getByText("Ping is thinking…")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Keep exploring" }));
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).universes).toHaveLength(4);
+    fireEvent.click(screen.getByRole("button", { name: "Start over" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reset demo" }));
+    const reset = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(reset.universes).toEqual([]);
+    expect(reset.profile.annualSalary).toBe(72000);
+    expect(reset.changes).toEqual([]);
+    expect(reset.conversation).toBeUndefined();
+    expect(reset.activeGoalId).toBeUndefined();
+    expect(reset.appliedOperationIds).toBeUndefined();
+    expect(screen.queryByRole("log")).toBeNull();
+    expect((screen.getByLabelText("Your message to Ping") as HTMLInputElement).value).toBe("");
+    await act(async () => { finish!({ ok: true, json: async () => ({ source: "Nemotron", data: modelFixture("Can I move to New York?", "create") }) } as Response); });
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toEqual(reset);
+    expect(screen.queryByRole("alert")).toBeNull();
+    view.unmount(); render(<App />);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).universes).toEqual([]);
+    expect(screen.queryByText("A previous experiment")).toBeNull();
+    expect(screen.getByRole("button", { name: "Start over" })).toBeTruthy();
+  });
   it("draws new paths on the map, tucks a reply while drafting, and opens details only by choice", async () => {
     render(<App />);
     const input = screen.getByLabelText("Your message to Ping");

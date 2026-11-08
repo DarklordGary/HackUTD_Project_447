@@ -95,6 +95,22 @@ export function rescheduleGroup(events: FinancialEvent[], groupId: string, delay
   });
 }
 
+export function applyArchive(state: AppState, data: Interpretation) {
+  if (data.operation !== "archive" || !data.targetUniverseId) throw new Error("An archive command needs an exact plan ID.");
+  const operationId = data.operationId ?? id();
+  if (state.appliedOperationIds?.includes(operationId)) return { state, explanation: "This plan was already archived." };
+  const plan = state.universes.find(u => u.id === data.targetUniverseId);
+  if (!plan) throw new Error("The plan is no longer available. Please choose an existing plan.");
+  if (plan.archiveReason === "realized") throw new Error("That plan already happened in reality. Archiving cannot undo actual events.");
+  const explanation = plan.archived ? `${plan.name} is already archived.` : `I've set aside ${plan.name}. Its history is saved, and your real finances are unchanged.`;
+  return { explanation, state: {
+    ...state,
+    universes: state.universes.map(u => u.id === plan.id ? { ...u, archived: true, archiveReason: "manual" as const, finalProfile: u.finalProfile ?? structuredClone(state.profile) } : u),
+    activeGoalId: state.activeGoalId === plan.id ? undefined : state.activeGoalId,
+    appliedOperationIds: [...(state.appliedOperationIds ?? []), operationId],
+  } };
+}
+
 export function applyReality(state: AppState, data: Interpretation, prompt: string) {
   const operationId = data.operationId ?? id();
   if (state.appliedOperationIds?.includes(operationId)) return { state, explanation: "This change was already recorded.", impacts: [] };
