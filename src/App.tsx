@@ -15,13 +15,9 @@ import {
   ListTree,
   Loader2,
   MessageCircle,
-  Map,
-  List,
   PanelLeftClose,
   PanelLeftOpen,
-  Plus,
   RefreshCw,
-  Send,
   Settings2,
   SlidersHorizontal,
   TrendingUp,
@@ -38,7 +34,6 @@ import {
   Breakdown,
   Parrot,
   ProjectionChart,
-  UniverseIcon,
 } from "./components";
 import TimelineCanvas, { selectMapUniverses } from "./TimelineCanvas";
 
@@ -50,9 +45,6 @@ export default function App() {
   const [showArchived, setShowArchived] = useState(false);
   const [baselineChart, setBaselineChart] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [timelineView, setTimelineView] = useState<"map" | "list">(() =>
-    window.matchMedia?.("(max-width: 900px)").matches ? "list" : "map",
-  );
   const [selectedBranches, setSelectedBranches] = useState<string[]>(() => {
     try {
       const saved = JSON.parse(

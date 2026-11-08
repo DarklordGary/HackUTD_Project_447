@@ -3,14 +3,9 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  Building2,
-  Car,
   ChevronDown,
-  GraduationCap,
-  Home,
-  Sparkles,
 } from "lucide-react";
-import type { FinancialEvent, Profile, Projection, Universe } from "./types";
+import type { FinancialEvent, Profile, Projection } from "./types";
 import { money } from "./engine";
 export function Parrot({
   size = 44,
@@ -35,76 +30,6 @@ export function Parrot({
       <circle cx="44" cy="22" r=".9" fill="white" />
       <path d="M24 30c15-2 16 15 2 18" fill="#286a48" />
       <path d="m17 48-3 11 10-7" fill="#89ba66" />
-    </svg>
-  );
-}
-export const UniverseIcon = ({
-  icon,
-  size = 20,
-}: {
-  icon: Universe["icon"];
-  size?: number;
-}) => {
-  const Icon = {
-    city: Building2,
-    home: Home,
-    sparkles: Sparkles,
-    car: Car,
-    graduation: GraduationCap,
-  }[icon];
-  return <Icon size={size} />;
-};
-export function MiniLandscape({
-  kind,
-  color,
-}: {
-  kind: Universe["icon"];
-  color: string;
-}) {
-  return (
-    <svg viewBox="0 0 280 88" className="landscape" aria-hidden="true">
-      <defs>
-        <linearGradient id={`land-${kind}`} x2="0" y2="1">
-          <stop stopColor={color} stopOpacity=".12" />
-          <stop offset="1" stopColor={color} stopOpacity=".02" />
-        </linearGradient>
-      </defs>
-      <rect width="280" height="88" fill={`url(#land-${kind})`} />
-      <circle cx="225" cy="26" r="13" fill={color} opacity=".18" />
-      <path
-        d="M0 78Q45 58 92 76T190 72T280 65V88H0"
-        fill={color}
-        opacity=".08"
-      />
-      {kind === "city" ? (
-        <g fill={color} opacity=".52">
-          <path d="M82 76V39h24v37M111 76V20h23v56M139 76V32h31v44M175 76V46h24v30" />
-          <path d="M120 20V8h5v12M146 32V20h4v12" />
-          <g stroke="#fff" strokeWidth="3" opacity=".8">
-            <path d="M88 47h12m-12 9h12m-12 9h12m17-36h11m-11 10h11m-11 10h11m-11 10h11m17-20h18m-18 10h18m-18 10h18" />
-          </g>
-        </g>
-      ) : kind === "home" ? (
-        <g stroke={color} strokeWidth="2" fill={color} fillOpacity=".2">
-          <path d="m96 48 42-32 43 32v31H96Z" />
-          <path d="m88 49 50-39 51 39M120 79V56h19v23" />
-          <path d="M151 49h17v16h-17Z" fill="white" />
-          <path d="M83 78V55m-7 9 7-13 7 13" />
-        </g>
-      ) : (
-        <g stroke={color} strokeWidth="2" fill="none">
-          <path d="M85 72c24-2 32-11 44-27s28-18 58-28" strokeDasharray="4 5" />
-          <path d="m175 16 14-2-7 13" />
-          <circle cx="106" cy="58" r="10" fill={color} fillOpacity=".13" />
-          <circle cx="149" cy="38" r="13" fill={color} fillOpacity=".18" />
-          <path
-            d="m209 40 2 7 7 2-7 2-2 7-2-7-7-2 7-2Z"
-            fill={color}
-            fillOpacity=".4"
-          />
-        </g>
-      )}
-      <path d="M65 79h147" stroke={color} opacity=".25" />
     </svg>
   );
 }

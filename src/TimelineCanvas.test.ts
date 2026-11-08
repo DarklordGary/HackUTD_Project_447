@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { layoutTimelines } from "./TimelineCanvas";
-import { seed } from "./seed";
+import { seedExamples as seed } from "./seed-fixtures.test-support";
 describe("persistent timeline layout", () => {
   it("uses real parent IDs and event timing even when children arrive before parents", () => {
     const s = seed(),

@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Profile, Universe } from "./types";
-import { monthLabel, money, eventAmountLabel } from "./engine";
+import { monthLabel, eventAmountLabel } from "./engine";
 
 interface Lane {
   universe: Universe;

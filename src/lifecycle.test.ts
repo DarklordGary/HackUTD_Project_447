@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { seed, makeUniverse } from "./seed";
-import { applyReality, mergeEvents, rescheduleGroup } from "./state";
+import { makeUniverse } from "./seed";
+import { seedExamples as seed } from "./seed-fixtures.test-support";
+import { applyReality, rescheduleGroup } from "./state";
 import { assess, simulate, salaryTarget, loanPayment } from "./engine";
 import { upgradeWorkspace } from "./workspace-upgrade";
 import { workspaceSchema } from "./contracts";

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { createToolSession, runNemotronAgent, toolDefinitions } from "./agent";
+import { createToolSession, runNemotronAgent } from "./agent";
 import type { AgentContext } from "./agent";
-import { seed } from "../src/seed";
+import { seedExamples as seed } from "../src/seed-fixtures.test-support";
 import { simulate } from "../src/engine";
 import { mergeEvents } from "../src/state";
 

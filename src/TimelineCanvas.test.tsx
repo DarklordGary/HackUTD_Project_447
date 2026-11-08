@@ -11,7 +11,8 @@ import TimelineCanvas, {
   layoutTimelines,
   selectMapUniverses,
 } from "./TimelineCanvas";
-import { seed, makeUniverse } from "./seed";
+import { makeUniverse } from "./seed";
+import { seedExamples as seed } from "./seed-fixtures.test-support";
 import { upgradeWorkspace } from "./workspace-upgrade";
 
 afterEach(cleanup);

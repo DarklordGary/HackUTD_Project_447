@@ -1,5 +1,5 @@
 import { DbConnection } from "../src/module_bindings";
-import { seed } from "../src/seed";
+import { seedExamples as seed } from "../src/seed-fixtures.test-support";
 const uri = process.env.SPACETIMEDB_URI || "ws://127.0.0.1:3000";
 const database = process.env.SPACETIMEDB_DATABASE || "ping-local";
 const state = seed();

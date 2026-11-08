@@ -13,7 +13,8 @@ import App from "./App";
 import { modelFixture } from "./model-fixtures.test-support";
 import userEvent from "@testing-library/user-event";
 import { STORAGE_KEY } from "./state";
-import { seed, makeUniverse } from "./seed";
+import { makeUniverse } from "./seed";
+import { seedExamples as seed } from "./seed-fixtures.test-support";
 beforeEach(() => {
   localStorage.clear();
   // Scenario interaction tests explicitly load existing branches; fresh users start empty.

@@ -8,7 +8,7 @@ import {
   STORAGE_KEY,
   applyReality,
 } from "./state";
-import { money, simulate } from "./engine";
+import { simulate } from "./engine";
 import { colors, id, makeUniverse } from "./seed";
 import { interpret } from "./interpreter";
 import { connectPersistence } from "./sync";
@@ -54,7 +54,6 @@ export function usePing() {
     [profile, state.universes],
   );
   const selectedRows = universe ? allRows.get(universe.id)! : baseline;
-  const unread = state.notices.filter((n) => !n.read).length;
   useEffect(() => {
     fetch("/api/status")
       .then((r) => r.json())
@@ -315,7 +314,6 @@ export function usePing() {
     baseline,
     allRows,
     selectedRows,
-    unread,
     navigate,
     openChat,
     openUniverse,

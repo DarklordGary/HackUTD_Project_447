@@ -1,5 +1,5 @@
 import type { AppState, FinancialEvent, Profile, Universe } from "./types";
-import type { Interpretation } from "./interpreter";
+import type { Interpretation } from "./contracts";
 import { assess, money, simulate, dateMonth, salaryTarget, currentFacts } from "./engine";
 import { id, seed } from "./seed";
 import { upgradeWorkspace } from "./workspace-upgrade";

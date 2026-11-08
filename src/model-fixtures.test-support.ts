@@ -1,7 +1,7 @@
 // Exact mocked model outputs for offline tests. Never imported by application code.
 import type { Mode, Profile, Universe } from "./types";
 import type { Interpretation } from "./contracts";
-import { seed } from "./seed";
+import { seedExamples as seed } from "./seed-fixtures.test-support";
 
 export function modelFixture(
   prompt: string,

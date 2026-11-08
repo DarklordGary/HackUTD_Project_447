@@ -84,14 +84,6 @@ body,
 .canvas-topline {
   padding-block: 2px;
 }
-.canvas-topline .view-switch {
-  background: #f0f3ed;
-  border-color: transparent;
-}
-.canvas-topline .view-switch button[aria-pressed="true"] {
-  background: var(--paper);
-  box-shadow: 0 1px 4px #303b3314;
-}
 .canvas-topline .toolbar-actions .compare-action {
   border: 1px solid var(--line);
   background: var(--paper);
@@ -234,7 +226,6 @@ body,
 .canvas-topline .toolbar-actions button {
   min-height: 44px;
 }
-.view-switch button,
 .metric-controls button,
 .segmented button {
   min-height: 44px;
@@ -261,23 +252,10 @@ body,
   min-height: 0;
   aspect-ratio: auto;
 }
-.canvas-instruction {
-  flex-shrink: 0;
-  min-width: 0;
-  line-height: 1.6;
-}
 .canvas-footer {
   gap: 16px 28px;
   padding: 20px 0 8px;
 }
-.canvas-legend {
-  gap: 16px 24px;
-}
-.timeline-directory {
-  min-width: 0;
-}
-.directory-item,
-.directory-item > button:first-child,
 .financial-column,
 .branch-summary,
 .chart-panel,
@@ -287,8 +265,6 @@ body,
 .detail-page-heading > div {
   min-width: 0;
 }
-.directory-item > button:first-child > span:not(.status),
-.directory-item small,
 .financial-row > span,
 .event-copy,
 .setting-row p,
@@ -359,8 +335,7 @@ body,
 }
 .settings-reset,
 .before-after,
-.baseline-overview,
-.baseline-actions {
+.baseline-overview {
   flex-wrap: wrap;
 }
 .help-modal {
@@ -421,18 +396,6 @@ body,
 .send-button {
   width: 44px;
   height: 44px;
-}
-.chat-mode {
-  flex-wrap: wrap;
-  flex-shrink: 0;
-  gap: 8px;
-}
-.chat-mode select {
-  min-width: 0;
-  flex: 1;
-  max-width: 100%;
-  font-size: 14px;
-  min-height: 44px;
 }
 .chat-context {
   flex-wrap: wrap;
@@ -596,13 +559,8 @@ body,
     padding: 7px 8px;
     gap: 8px;
   }
-  .composer-form input,
-  .chat-mode select {
+  .composer-form input {
     font-size: 16px;
-  }
-  .chat-mode {
-    font-size: 13px;
-    padding: 8px 4px;
   }
   .chat-context {
     font-size: 12px;
@@ -624,12 +582,6 @@ body,
   }
   .canvas-footer {
     padding: 18px 0 8px;
-  }
-  .canvas-legend {
-    gap: 14px 24px;
-  }
-  .canvas-legend > span {
-    font-size: 14px;
   }
   .page-heading,
   .detail-page-heading {
@@ -705,13 +657,6 @@ body,
     position: relative;
     gap: 10px;
   }
-  .canvas-topline .view-switch {
-    justify-content: space-between;
-  }
-  .canvas-topline .view-switch button {
-    flex: 1;
-    padding-inline: 8px;
-  }
   .branch-picker > summary > svg:first-child {
     display: none;
   }
@@ -728,13 +673,6 @@ body,
     right: 0;
     width: auto;
     max-width: 100%;
-  }
-  .canvas-legend {
-    justify-content: flex-start;
-    gap: 14px 20px;
-  }
-  .canvas-legend > span {
-    font-size: 14px;
   }
   .financial-column,
   .branch-summary,
@@ -857,9 +795,6 @@ body,
   }
   .chat-message.user {
     margin-left: 20px;
-  }
-  .chat-mode > label {
-    flex-basis: 100%;
   }
   .chat-context small {
     flex-basis: 100%;

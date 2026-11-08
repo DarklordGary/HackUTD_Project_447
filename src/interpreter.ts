@@ -1,8 +1,6 @@
 import type { Mode, Profile, Universe, Message } from "./types";
 import { interpretationSchema } from "./contracts";
 import type { Interpretation } from "./contracts";
-export { eventSchema, interpretationSchema } from "./contracts";
-export type { Interpretation } from "./contracts";
 export async function interpret(
   prompt: string,
   mode: Mode,

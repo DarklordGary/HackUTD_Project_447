@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assess, simulate } from "./engine";
-import { seed } from "./seed";
+import { seedExamples as seed } from "./seed-fixtures.test-support";
 import { modelFixture } from "./model-fixtures.test-support";
 import { applyReality, mergeEvents } from "./state";
 describe("deterministic monthly simulation", () => {

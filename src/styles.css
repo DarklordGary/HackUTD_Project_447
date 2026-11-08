@@ -395,33 +395,6 @@ nav {
 .sidebar-bottom {
   margin-top: auto;
 }
-.workspace-health {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 14px;
-  font-size: 11px;
-  line-height: 1.6;
-  color: var(--muted);
-}
-.workspace-health i {
-  height: 5px;
-  width: 5px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: #829c6e;
-}
-.help-button {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 44px;
-  font-size: 12px;
-  color: var(--muted);
-  padding: 10px 14px;
-  margin-bottom: 20px;
-  border-radius: 8px;
-}
 .profile {
   display: flex;
   align-items: center;
@@ -574,7 +547,6 @@ nav {
   stroke: #e6ebe3;
   stroke-width: 1;
 }
-.view-switch,
 .segmented,
 .metric-controls {
   display: inline-flex;
@@ -585,7 +557,6 @@ nav {
   border-radius: 12px;
   background: #fff;
 }
-.view-switch button,
 .segmented button,
 .metric-controls button {
   min-height: 40px;
@@ -600,7 +571,6 @@ nav {
   color: var(--muted);
   white-space: nowrap;
 }
-.view-switch button[aria-pressed="true"],
 .segmented .chosen,
 .metric-controls .selected {
   background: var(--soft);
@@ -794,38 +764,6 @@ nav {
   gap: 24px;
   padding: 12px 2px;
 }
-.canvas-legend {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px 20px;
-  flex-wrap: wrap;
-}
-.canvas-legend > span {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 16px;
-  font-weight: 500;
-  color: var(--ink);
-}
-.canvas-legend i {
-  height: 5px;
-  width: 30px;
-  display: inline-block;
-  background: #3c493a;
-  border-radius: 2px;
-}
-.canvas-legend .possibility-line {
-  background: #729467;
-}
-.canvas-legend .event-circle {
-  height: 14px;
-  width: 14px;
-  border: 2px solid #729467;
-  border-radius: 50%;
-  background: transparent;
-}
 .archive-toggle {
   display: flex;
   align-items: center;
@@ -841,83 +779,6 @@ nav {
   width: 16px;
   margin: 0;
   accent-color: var(--primary);
-}
-.timeline-directory {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 20px;
-}
-.canvas-panel:has(.timeline-directory) .canvas-legend {
-  display: none;
-}
-.directory-item {
-  position: relative;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  transition:
-    box-shadow var(--feedback),
-    border-color var(--feedback),
-    transform var(--feedback) var(--ease);
-}
-.directory-item:hover {
-  border-color: #b5c8a8;
-  box-shadow: 0 7px 22px #34492d08;
-  transform: translateY(-2px);
-}
-.directory-item > button:first-child {
-  flex: 1;
-  min-width: 0;
-  text-align: left;
-  padding: 16px;
-  display: grid;
-  grid-template-columns: 24px 1fr;
-  align-items: center;
-  gap: 12px;
-  color: var(--primary);
-  border-radius: 10px;
-}
-.directory-item > button:first-child:hover {
-  background: transparent;
-}
-.directory-item > button:first-child > span:not(.status) {
-  font-size: 16px;
-  font-weight: 550;
-  line-height: 1.6;
-}
-.directory-item small {
-  grid-column: 2;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--muted);
-}
-.directory-item .status {
-  grid-column: 2;
-  justify-self: start;
-  margin-top: 4px;
-}
-.directory-item > .icon-button {
-  align-self: flex-start;
-  margin-top: 9px;
-}
-.empty-state {
-  text-align: center;
-  padding: 60px 24px;
-  color: var(--primary);
-}
-.empty-state h2 {
-  font-size: 24px;
-  margin: 20px 0 12px;
-}
-.empty-state p {
-  font-size: 15px;
-}
-.empty-state button {
-  margin-top: 26px;
 }
 .branch-workspace {
   display: grid;
@@ -1474,23 +1335,6 @@ nav {
 .baseline-secondary .financial-column {
   padding: 18px;
 }
-.baseline-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  margin-top: 16px;
-}
-.baseline-actions > span {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: 11px;
-  color: var(--muted);
-}
-.baseline-actions .secondary-button {
-  font-size: 12px;
-}
 .baseline-chart {
   margin-top: 32px;
 }
@@ -1526,9 +1370,6 @@ nav {
   }
   .baseline-secondary {
     padding-top: 8px;
-  }
-  .baseline-actions {
-    margin-top: 12px;
   }
 }
 .baseline-chart .chart-toolbar {
@@ -1732,28 +1573,6 @@ nav {
   flex: 1;
   display: flex;
   flex-direction: column;
-}
-.chat-mode {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 12px 8px;
-  border-top: 1px solid var(--line);
-  border-bottom: 1px solid var(--line);
-  font-size: 12px;
-  color: var(--muted);
-}
-.chat-mode select {
-  max-width: 270px;
-  min-height: 42px;
-  border: 1px solid var(--line);
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: #f8fbf3;
-  font-size: 12px;
-  color: var(--primary);
-  cursor: pointer;
 }
 .chat-context {
   display: flex;
@@ -2356,11 +2175,6 @@ nav {
 .timeline-scroll {
   padding-bottom: 12px;
 }
-.canvas-instruction {
-  font-size: 13px;
-  padding: 8px 12px 0;
-  color: #4f6250;
-}
 .branch-picker {
   position: relative;
   margin-left: auto;
@@ -2436,22 +2250,6 @@ nav {
   text-decoration: underline;
   text-underline-offset: 4px;
   border-radius: 8px;
-}
-.universe-swatches {
-  display: inline-flex;
-  gap: 5px;
-}
-.canvas-legend .universe-swatches i {
-  width: 20px;
-}
-.canvas-legend .universe-swatches i:nth-child(1) {
-  background: #537e6a;
-}
-.canvas-legend .universe-swatches i:nth-child(2) {
-  background: #8b7897;
-}
-.canvas-legend .universe-swatches i:nth-child(3) {
-  background: #a17d46;
 }
 .event-popover {
   position: fixed;
@@ -2643,15 +2441,6 @@ nav {
   .baseline-overview b {
     font-size: 32px;
   }
-  .canvas-legend {
-    gap: 18px;
-  }
-  .canvas-legend > span {
-    font-size: 16px;
-  }
-  .timeline-directory {
-    gap: 18px;
-  }
   .ripple-universes b {
     min-width: 160px;
   }
@@ -2691,14 +2480,6 @@ nav {
     font-size: 12px;
     gap: 8px;
   }
-  .workspace-health {
-    font-size: 10px;
-    padding: 12px 8px;
-  }
-  .help-button {
-    font-size: 11px;
-    padding: 10px 8px;
-  }
   .workspace-content {
     padding: 12px 18px 18px;
   }
@@ -2724,7 +2505,6 @@ nav {
   .canvas-topline {
     gap: 14px;
   }
-  .view-switch button,
   .segmented button {
     padding: 8px 12px;
     font-size: 12px;
@@ -2807,25 +2587,8 @@ nav {
   .baseline-overview b {
     font-size: 30px;
   }
-  .baseline-actions {
-    flex-wrap: wrap;
-    gap: 18px;
-  }
-  .baseline-actions > .secondary-button {
-    margin-left: auto;
-  }
   .financial-total {
     padding: 28px 0;
-  }
-  .timeline-directory {
-    grid-template-columns: 1fr;
-  }
-  .directory-item > button:first-child {
-    grid-template-columns: 28px 1fr;
-    gap: 10px;
-  }
-  .directory-item > button:first-child > span:not(.status) {
-    font-size: 16px;
   }
   .lane-preview {
     right: 18px;
@@ -2961,12 +2724,10 @@ nav {
     margin-bottom: 20px;
     flex-wrap: wrap;
   }
-  .view-switch,
   .segmented {
     padding: 3px;
     border-radius: 10px;
   }
-  .view-switch button,
   .segmented button {
     min-height: 40px;
     font-size: 12px;
@@ -2974,29 +2735,6 @@ nav {
   }
   .canvas-topline > .segmented {
     margin-left: auto;
-  }
-  .timeline-directory {
-    gap: 16px;
-  }
-  .directory-item {
-    padding: 10px;
-    border-radius: 15px;
-  }
-  .directory-item > button:first-child {
-    padding: 16px 12px;
-    gap: 10px;
-  }
-  .directory-item > button:first-child > span:not(.status) {
-    font-size: 15px;
-  }
-  .directory-item small {
-    font-size: 12px;
-  }
-  .directory-item > .icon-button {
-    margin-top: 10px;
-  }
-  .directory-item .status {
-    font-size: 11px;
   }
   .timeline-scroll {
     border-radius: 15px;
@@ -3008,16 +2746,6 @@ nav {
   }
   .canvas-footer {
     padding: 18px 0 0;
-  }
-  .canvas-legend {
-    gap: 16px;
-  }
-  .canvas-legend > span {
-    font-size: 14px;
-    gap: 10px;
-  }
-  .canvas-legend i {
-    width: 24px;
   }
   .archive-toggle {
     font-size: 11px;
@@ -3067,17 +2795,6 @@ nav {
     max-height: 660px;
     width: calc(100vw - 24px);
     padding: 12px;
-  }
-  .chat-mode {
-    padding: 10px 6px;
-    font-size: 11px;
-    gap: 12px;
-  }
-  .chat-mode select {
-    font-size: 11px;
-    max-width: 230px;
-    padding: 10px;
-    min-height: 42px;
   }
   .chat-context {
     font-size: 11px;
@@ -3404,19 +3121,6 @@ nav {
   .baseline-more > summary {
     font-size: 14px;
   }
-  .baseline-actions {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 20px;
-  }
-  .baseline-actions > .secondary-button {
-    margin-left: 0;
-    min-height: 46px;
-    font-size: 12px;
-  }
-  .baseline-actions > span {
-    font-size: 10px;
-  }
   .baseline-chart > .chart-toolbar {
     gap: 18px;
   }
@@ -3595,15 +3299,6 @@ nav {
   .toast > svg {
     width: 15px;
   }
-  .empty-state {
-    padding: 48px 20px;
-  }
-  .empty-state h2 {
-    font-size: 22px;
-  }
-  .empty-state p {
-    font-size: 13px;
-  }
 }
 @media (max-width: 390px) {
   .workspace-content {
@@ -3617,7 +3312,6 @@ nav {
     padding: 11px 12px;
     font-size: 11px;
   }
-  .view-switch button,
   .segmented button {
     font-size: 11px;
     padding: 8px 10px;
@@ -3627,28 +3321,6 @@ nav {
   }
   .canvas-topline > .segmented {
     margin-left: auto;
-  }
-  .canvas-legend {
-    gap: 13px;
-  }
-  .canvas-legend > span {
-    font-size: 14px;
-  }
-  .directory-item {
-    padding: 8px;
-  }
-  .directory-item > button:first-child {
-    padding: 14px 9px;
-    gap: 9px;
-  }
-  .directory-item > button:first-child > span:not(.status) {
-    font-size: 14px;
-  }
-  .directory-item small {
-    font-size: 11px;
-  }
-  .directory-item > .icon-button {
-    width: 38px;
   }
   .floating-composer {
     width: calc(100vw - 28px);
@@ -3666,14 +3338,6 @@ nav {
   .composer-identity > svg {
     height: 27px;
     width: 27px;
-  }
-  .chat-mode {
-    gap: 10px;
-    font-size: 10px;
-  }
-  .chat-mode select {
-    max-width: 210px;
-    font-size: 10px;
   }
   .chat-context {
     font-size: 10px;
@@ -3773,7 +3437,6 @@ nav {
     transform: none;
   }
   .chat-suggestions > button:hover,
-  .directory-item:hover,
   .primary-button:hover,
   .notice:hover {
     transform: none;

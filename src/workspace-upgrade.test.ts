@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { seed, makeUniverse } from "./seed";
+import { seed as freshSeed, makeUniverse } from "./seed";
+import { seedExamples as seed } from "./seed-fixtures.test-support";
 import { upgradeWorkspace } from "./workspace-upgrade";
 
 describe("Main Reality reset", () => {
@@ -15,7 +16,12 @@ describe("Main Reality reset", () => {
   });
 
   it("starts fresh workspaces without examples and preserves branches created after reset", () => {
-    const next = upgradeWorkspace(seed());
+    const fresh = freshSeed();
+    expect(fresh.examplesVersion).toBe(2);
+    expect(fresh.universes).toEqual([]);
+    expect(fresh.notices).toEqual([]);
+    const next = upgradeWorkspace(fresh);
+    expect(next).toBe(fresh);
     expect(next.universes).toEqual([]);
     next.universes.push(makeUniverse("New future", "Created after resetting", []));
     expect(upgradeWorkspace(next)).toBe(next);
