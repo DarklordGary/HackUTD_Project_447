@@ -500,6 +500,24 @@ nav {
   gap: 18px;
   margin-bottom: 22px;
 }
+.timeline-heading {
+  margin: 0 0 12px;
+}
+.timeline-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font: 700 24px/1.2 "Manrope", sans-serif;
+}
+.timeline-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.branch-label-backdrop {
+  fill: #fff;
+  stroke: #e6ebe3;
+  stroke-width: 1;
+}
 .view-switch,
 .segmented,
 .metric-controls {
@@ -550,7 +568,7 @@ nav {
   border-radius: 18px;
   background: white;
   overflow: auto;
-  padding: 16px 12px 86px;
+  padding: 10px 12px 20px;
   scrollbar-width: thin;
   scrollbar-color: #cfdbc6 transparent;
 }
@@ -563,7 +581,7 @@ nav {
   font-family: "DM Sans", sans-serif;
 }
 .canvas-date {
-  font-size: 13px;
+  font-size: 15px;
   fill: var(--muted);
 }
 .main-reality-label {
@@ -673,7 +691,7 @@ nav {
   opacity: 0.6;
 }
 .branch-label {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 550;
   fill: var(--ink);
   paint-order: stroke;
@@ -724,7 +742,7 @@ nav {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 32px;
+  gap: 14px 20px;
   flex-wrap: wrap;
 }
 .canvas-legend > span {
@@ -2195,7 +2213,7 @@ nav {
   aspect-ratio: 1200 / 600;
 }
 .timeline-scroll {
-  padding-bottom: 24px;
+  padding-bottom: 12px;
 }
 .canvas-instruction {
   font-size: 13px;

@@ -199,19 +199,20 @@ export default function TimelineCanvas({
   }
   const lowest = Math.min(-1, ...lanes.map((n) => n.lane));
   const highest = Math.max(1, ...lanes.map((n) => n.lane));
-  const gap = 156,
+  const gap = 188,
     baselineY = 72 - lowest * gap;
   const height = Math.max(540, (highest - lowest) * gap + 224);
-  const start = 64,
-    end = 1120;
+  const start = 24,
+    end = 930;
   // Keep a quiet lead-in for the context and forks; event dates share one linear scale.
-  const timeStart = 500;
+  const timeStart = 120;
   const timeX = (month: number) =>
     timeStart + (month / horizon) * (end - timeStart);
   const axisY = height - 64;
+  const tickStep = horizon > 18 ? 6 : 3;
   const ticks = Array.from(
-    { length: Math.floor(horizon / 3) + 1 },
-    (_, index) => index * 3,
+    { length: Math.floor(horizon / tickStep) + 1 },
+    (_, index) => index * tickStep,
   );
   const geometry = new Map<
     string,
@@ -224,14 +225,14 @@ export default function TimelineCanvas({
     const fromX = Math.min(
       720,
       Math.max(
-        start + 180 + (lane.fork / horizon) * 300,
+        start + 170 + (lane.fork / horizon) * 220,
         parent ? parent.toX + 60 : 0,
       ),
     );
     geometry.set(lane.universe.id, {
       fromX,
       fromY: lane.parent ? routeY(lane.parent, fromX) : baselineY,
-      toX: Math.min(end - 190, fromX + 190),
+      toX: Math.min(end - 230, fromX + 220),
       toY: baselineY + lane.lane * gap,
     });
   }
@@ -403,9 +404,9 @@ export default function TimelineCanvas({
               const { fromX, fromY, toX, toY } = geometry.get(u.id)!;
               const dx = toX - fromX;
               const line = `M${fromX},${fromY} C${fromX + dx * 0.45},${fromY} ${fromX + dx * 0.55},${toY} ${toX},${toY} H${end}`;
-              const labelX = toX + 12;
-              const labelLimit = Math.max(10, Math.floor((end - labelX) / 9));
-              const labelY = toY - 18;
+              const labelX = end + 18;
+              const labelLimit = Math.max(10, Math.floor((1170 - labelX) / 9));
+              const labelY = toY - 22;
               return (
                 <g
                   key={u.id}
@@ -466,14 +467,7 @@ export default function TimelineCanvas({
                     onClick={() => onSelect(u)}
                     onKeyDown={(e) => keyboard(e, () => onSelect(u))}
                   >
-                    <rect
-                      x={labelX - 8}
-                      y={labelY - 22}
-                      width="360"
-                      height="44"
-                      rx="10"
-                      fill="transparent"
-                    />
+                    <rect x={labelX - 8} y={labelY - 17} width={Math.min(340, Math.max(108, u.name.length * 9 + 20))} height="34" rx="10" className="branch-label-backdrop" />
                     <text
                       className="branch-label"
                       x={labelX}

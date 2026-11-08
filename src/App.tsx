@@ -288,7 +288,6 @@ export default function App() {
         >
           {page === "timelines" && !universe && (
             <section className="canvas-panel">
-              <h1 className="sr-only">Your financial multiverse</h1>
               <div className="canvas-topline">
                 <div
                   className="view-switch"
@@ -349,14 +348,6 @@ export default function App() {
                 >
                   <span>
                     <i className="reality-line" /> Main Reality
-                  </span>
-                  <span>
-                    <span className="universe-swatches" aria-hidden="true">
-                      <i />
-                      <i />
-                      <i />
-                    </span>{" "}
-                    Possible futures
                   </span>
                   <span>
                     <i className="event-circle" /> Life event
