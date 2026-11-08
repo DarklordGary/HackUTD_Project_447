@@ -18,7 +18,6 @@ export function usePing() {
   const [state, setState] = useState<AppState>(readState);
   const [page, setPage] = useState<Page>("timelines");
   const [selected, setSelected] = useState<string | null>(null);
-  const [horizon, setHorizon] = useState(36);
   const [month, setMonth] = useState(12);
   const [chat, setChat] = useState(false);
   const [mode, setMode] = useState<Mode>("create");
@@ -277,8 +276,6 @@ export function usePing() {
     setPage,
     selected,
     setSelected,
-    horizon,
-    setHorizon,
     month,
     setMonth,
     chat,

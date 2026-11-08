@@ -13,9 +13,7 @@ import {
   Layers,
   ListTree,
   Loader2,
-  Maximize2,
   MessageCircle,
-  Minimize2,
   Map,
   List,
   Plus,
@@ -203,11 +201,9 @@ export default function App() {
           aria-label="Ping home"
         >
           <span className="brand-mark">
-            <Parrot size={35} />
+            <img src="/ping.svg" alt="" />
           </span>
-          <span>
-            ping<span className="brand-dot">.</span>
-          </span>
+          <span>Ping</span>
         </button>
         <nav aria-label="Main navigation">
           <button
@@ -229,75 +225,31 @@ export default function App() {
             <TrendingUp size={19} />
             <span>My Baseline</span>
           </button>
-          <button
-            className={`nav-item ${page === "settings" ? "active" : ""}`}
-            aria-label="Settings"
-            aria-current={page === "settings" ? "page" : undefined}
-            onClick={() => {
-              ping.navigate("settings");
-              ping.setChat(false);
-            }}
-          >
-            <Settings2 size={19} />
-            <span>Settings</span>
-          </button>
         </nav>
         <div className="sidebar-bottom">
-          <div className="workspace-health">
-            <i />
-            <div>{ping.storage}</div>
-          </div>
-          <button className="help-button" onClick={() => ping.setHelp(true)}>
-            <HelpCircle size={17} />
-            <span>How Ping works</span>
-          </button>
-          <div className="profile">
+          <div className="profile-row">
+            <div className="profile">
             <div className="avatar">AM</div>
             <div>
               {profile.name}
               <small>{profile.location}</small>
             </div>
-            <span className="profile-dot" />
+            </div>
+            <button
+              className={`profile-settings ${page === "settings" ? "active" : ""}`}
+              aria-label="Settings"
+              aria-current={page === "settings" ? "page" : undefined}
+              onClick={() => {
+                ping.navigate("settings");
+                ping.setChat(false);
+              }}
+            >
+              <Settings2 size={18} />
+            </button>
           </div>
         </div>
       </aside>
       <div className="main-shell">
-        <header className="topbar">
-          <button
-            className="mobile-brand"
-            aria-label="Ping home"
-            onClick={showTimelines}
-          >
-            <Parrot size={32} />
-            <span>ping.</span>
-          </button>
-          <div className="breadcrumb">
-            <span>Personal workspace</span>
-            <span className="breadcrumb-slash">/</span>
-            <b>{title}</b>
-            {universe && page === "timelines" && (
-              <>
-                <span className="breadcrumb-slash">/</span>
-                <span>{universe.name}</span>
-              </>
-            )}
-          </div>
-          <button
-            className={`notification-button ${ping.unread ? "has-updates" : ""}`}
-            onClick={() => {
-              ping.navigate("updates");
-              ping.setChat(false);
-            }}
-          >
-            <Bell size={15} />
-            <span>
-              {ping.unread
-                ? `${ping.unread} new ${ping.unread === 1 ? "update" : "updates"}`
-                : "Updates"}
-            </span>
-            {ping.unread > 0 && <i />}
-          </button>
-        </header>
         <main
           key={route}
           ref={mainRef}
@@ -308,10 +260,7 @@ export default function App() {
           {page === "timelines" && !universe && (
             <section className="canvas-panel">
               <div className="graph-toolbar">
-                <div>
-                  <h1>Your financial multiverse</h1>
-                  <p>One starting point. A little room for what’s next.</p>
-                </div>
+                <h1 className="sr-only">Your financial multiverse</h1>
                 <div className="toolbar-actions">
                   <button
                     className="secondary-button compare-action"
@@ -346,11 +295,6 @@ export default function App() {
                     <List size={16} /> List
                   </button>
                 </div>
-                <span className="timeline-count">
-                  {timelineView === "map"
-                    ? `${mapped.length} branches`
-                    : `${active.length} possibilities`}
-                </span>
                 {timelineView === "map" && (
                   <BranchPicker
                     universes={visible}
@@ -358,14 +302,13 @@ export default function App() {
                     onChange={setSelectedBranches}
                   />
                 )}
-                <Horizon value={ping.horizon} onChange={ping.setHorizon} />
               </div>
               {timelineView === "map" && (
                 <TimelineCanvas
                   universes={mapped}
                   colorUniverses={state.universes}
                   profile={profile}
-                  horizon={ping.horizon}
+                  horizon={36}
                   onSelect={selectUniverse}
                   onReality={showBaseline}
                   onBranch={(universe) => ping.openChat("branch", universe)}
@@ -700,21 +643,6 @@ export default function App() {
           )}
           {page === "baseline" && (
             <>
-              <div className="page-heading">
-                <div>
-                  <span className="eyebrow">
-                    THE STARTING POINT FOR EVERY POSSIBILITY
-                  </span>
-                  <h1>My Financial Baseline</h1>
-                  <p>Your real finances. Every timeline starts here.</p>
-                </div>
-                <button
-                  className="primary-button"
-                  onClick={() => ping.openChat("reality")}
-                >
-                  <RefreshCw size={16} /> Update reality
-                </button>
-              </div>
               <div className="baseline-overview">
                 <span>
                   Current net worth <b>{money(baseline[0].netWorth)}</b>
@@ -823,6 +751,12 @@ export default function App() {
                     ? "Hide projections"
                     : "View baseline projections"}
                 </button>
+                <button
+                  className="primary-button"
+                  onClick={() => ping.openChat("reality")}
+                >
+                  <RefreshCw size={14} /> Update reality
+                </button>
               </div>
               {baselineChart && (
                 <section className="chart-panel baseline-chart">
@@ -853,13 +787,9 @@ export default function App() {
           {page === "compare" && (
             <>
               <div className="page-heading">
-                <div>
-                  <button className="back-button" onClick={showTimelines}>
-                    <ArrowLeft size={14} /> All timelines
-                  </button>
-                  <h1>Compare paths</h1>
-                  <p>The same starting point. A different way forward.</p>
-                </div>
+                <button className="back-button" onClick={showTimelines}>
+                  <ArrowLeft size={14} /> All timelines
+                </button>
                 <MetricControls metric={metric} onChange={setMetric} />
               </div>
               <div className="compare-picker">
@@ -985,13 +915,6 @@ export default function App() {
           )}
           {page === "settings" && (
             <>
-              <div className="page-heading">
-                <div>
-                  <span className="eyebrow">YOUR WORKSPACE</span>
-                  <h1>Settings</h1>
-                  <p>A little context for your financial multiverse.</p>
-                </div>
-              </div>
               <section className="settings-panel">
                 <h2>Profile & connections</h2>
                 <SettingRow
@@ -1282,34 +1205,14 @@ function FloatingComposer({ ping }: { ping: PingController }) {
       aria-modal={chat ? false : undefined}
       aria-label={chat ? "A chat with Ping" : "Ask Ping"}
     >
-      <div className="composer-header">
-        <span className="composer-identity">
-          <Parrot size={32} />
-          <label htmlFor="ping-input">Ask Ping</label>
-          <span className="ai-status" title={ping.ai}>
-            <i />
-            {ping.ai.includes("Demo") ? "Demo" : "Live"}
-          </span>
-        </span>
-        <button
-          ref={toggleRef}
-          className="icon-button composer-toggle"
-          onClick={() => ping.setChat(!chat)}
-          aria-label={chat ? "Close chat" : "Expand chat"}
-          aria-expanded={chat}
-          aria-controls="ping-conversation"
-          title={chat ? "Close chat (Esc)" : "Open Ping (Ctrl+K)"}
-        >
-          {chat ? (
-            <Minimize2 size={18} />
-          ) : (
-            <>
-              <kbd>Ctrl K</kbd>
-              <Maximize2 size={16} />
-            </>
-          )}
-        </button>
-      </div>
+      <button
+        ref={toggleRef}
+        className="sr-only"
+        onClick={() => ping.setChat(!chat)}
+        aria-label={chat ? "Close chat" : "Expand chat"}
+        aria-expanded={chat}
+        aria-controls="ping-conversation"
+      />
       {chat && (
         <div className="composer-conversation" id="ping-conversation">
           <div className="chat-mode">
@@ -1497,34 +1400,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
           )}
         </button>
       </form>
-      {mode === "reality" && (
-        <div className="composer-caption">
-          <RefreshCw size={13} /> Updating your real baseline
-        </div>
-      )}
     </section>
-  );
-}
-function Horizon({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-}) {
-  return (
-    <div className="segmented" aria-label="Timeline horizon">
-      {[12, 24, 36].map((n) => (
-        <button
-          key={n}
-          aria-pressed={value === n}
-          className={value === n ? "chosen" : ""}
-          onClick={() => onChange(n)}
-        >
-          {n / 12}Y
-        </button>
-      ))}
-    </div>
   );
 }
 function MetricControls({
@@ -1658,11 +1534,6 @@ function Updates({
   return (
     <>
       <div className="page-heading">
-        <div>
-          <span className="eyebrow">WHEN REALITY MEETS POSSIBILITY</span>
-          <h1>Reality updates</h1>
-          <p>The ripple effect of a change in your real life.</p>
-        </div>
         <button
           className="secondary-button"
           onClick={() =>

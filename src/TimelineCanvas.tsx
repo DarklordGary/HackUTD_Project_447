@@ -199,7 +199,7 @@ export default function TimelineCanvas({
   }
   const lowest = Math.min(-1, ...lanes.map((n) => n.lane));
   const highest = Math.max(1, ...lanes.map((n) => n.lane));
-  const gap = 124,
+  const gap = 156,
     baselineY = 72 - lowest * gap;
   const height = Math.max(540, (highest - lowest) * gap + 224);
   const start = 64,
@@ -301,6 +301,7 @@ export default function TimelineCanvas({
         <svg
           className={`timeline-canvas ${activeId ? "has-active" : ""}`}
           viewBox={`0 0 1200 ${height}`}
+          preserveAspectRatio="xMidYMid meet"
           aria-label="Financial multiverse branching timeline"
         >
           <g
@@ -403,17 +404,22 @@ export default function TimelineCanvas({
               const dx = toX - fromX;
               const line = `M${fromX},${fromY} C${fromX + dx * 0.45},${fromY} ${fromX + dx * 0.55},${toY} ${toX},${toY} H${end}`;
               const labelX = toX + 12;
-              const actionX = Math.min(end - 20, labelX + 330);
               const labelLimit = Math.max(
                 10,
-                Math.floor(((onBranch ? actionX - 28 : end) - labelX) / 9),
+                Math.floor((end - labelX) / 9),
               );
+              const labelY = toY - 18;
               return (
                 <g
                   key={u.id}
                   className={`universe-lane ${u.archived ? "archived" : ""} ${activeId === u.id ? "is-active" : ""}`}
                   style={{ color }}
                 >
+                  <path
+                    className="universe-line-bridge"
+                    d={line}
+                    aria-hidden="true"
+                  />
                   <path
                     className="universe-line"
                     d={line}
@@ -425,6 +431,10 @@ export default function TimelineCanvas({
                     onMouseEnter={() => activate(u.id)}
                     onFocus={() => activate(u.id)}
                     onClick={() => onSelect(u)}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      onBranch?.(u);
+                    }}
                     onKeyDown={(e) => keyboard(e, () => onSelect(u))}
                   />
                   <path
@@ -442,6 +452,7 @@ export default function TimelineCanvas({
                     fill={color}
                     pointerEvents="none"
                   />
+                  <circle cx={toX} cy={toY} r="8" fill={color} pointerEvents="none" />
                   <path
                     className="universe-continuation"
                     d={`M${end + 14},${laneY}H1170`}
@@ -459,7 +470,7 @@ export default function TimelineCanvas({
                   >
                     <rect
                       x={labelX - 8}
-                      y={laneY - 58}
+                      y={labelY - 22}
                       width="360"
                       height="44"
                       rx="10"
@@ -468,7 +479,7 @@ export default function TimelineCanvas({
                     <text
                       className="branch-label"
                       x={labelX}
-                      y={laneY - 28}
+                      y={labelY}
                       textAnchor="start"
                       dominantBaseline="central"
                     >
@@ -479,21 +490,17 @@ export default function TimelineCanvas({
                   </g>
                   {onBranch && (
                     <g
-                      className="branch-add"
+                      className="branch-context-action"
                       role="button"
                       tabIndex={0}
                       aria-label={`Branch ${u.name}`}
-                      onPointerEnter={() => activate(u.id)}
-                      onMouseEnter={() => activate(u.id)}
-                      onFocus={() => activate(u.id)}
                       onClick={() => onBranch(u)}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        onBranch(u);
+                      }}
                       onKeyDown={(event) => keyboard(event, () => onBranch(u))}
-                    >
-                      <circle cx={actionX} cy={laneY - 28} r="22" />
-                      <path
-                        d={`M${actionX - 6},${laneY - 28}h12 M${actionX},${laneY - 34}v12`}
-                      />
-                    </g>
+                    />
                   )}
                 </g>
               );
@@ -635,7 +642,7 @@ export default function TimelineCanvas({
           )}
       </div>
       <p className="canvas-instruction">
-        Hover a branch to highlight it. Select + to branch from that universe.
+        Hover a branch to highlight it. Right-click a terminal node to branch.
         Hover or tap an event for details.
       </p>
     </div>
