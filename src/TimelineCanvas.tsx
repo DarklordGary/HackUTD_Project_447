@@ -296,6 +296,7 @@ export default function TimelineCanvas({
         <svg
           className={`timeline-canvas ${activeId ? "has-active" : ""}`}
           viewBox={`0 0 1200 ${height}`}
+          preserveAspectRatio="xMidYMid meet"
           aria-label="Financial multiverse branching timeline"
         >
           <g
@@ -348,12 +349,18 @@ export default function TimelineCanvas({
                 10,
                 Math.floor((end - labelX) / 9),
               );
+              const labelY = toY - 18;
               return (
                 <g
                   key={u.id}
                   className={`universe-lane ${u.archived ? "archived" : ""} ${activeId === u.id ? "is-active" : ""}`}
                   style={{ color }}
                 >
+                  <path
+                    className="universe-line-bridge"
+                    d={line}
+                    aria-hidden="true"
+                  />
                   <path
                     className="universe-line"
                     d={line}
@@ -404,7 +411,7 @@ export default function TimelineCanvas({
                   >
                     <rect
                       x={labelX - 8}
-                      y={laneY - 58}
+                      y={labelY - 22}
                       width="360"
                       height="44"
                       rx="10"
@@ -413,7 +420,7 @@ export default function TimelineCanvas({
                     <text
                       className="branch-label"
                       x={labelX}
-                      y={toY}
+                      y={labelY}
                       textAnchor="start"
                       dominantBaseline="central"
                     >

@@ -28,6 +28,13 @@
 body {
   margin: 0;
 }
+.app-shell {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
+}
 button,
 input,
 select,
@@ -410,15 +417,23 @@ nav {
   font-size: 11px;
 }
 .main-shell {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
   margin-left: var(--sidebar);
-  min-height: 100vh;
+  min-height: 0;
   background: var(--canvas);
 }
 .workspace-content {
+  flex: 1;
+  min-height: 0;
   max-width: none;
   margin: 0 auto;
-  padding: 18px 18px 120px;
-  min-height: 100vh;
+  width: 100%;
+  padding: 12px 18px 18px;
+  overflow: hidden;
   animation: page-in var(--enter) var(--ease);
   outline: none;
 }
@@ -450,6 +465,10 @@ nav {
   max-width: 470px;
 }
 .canvas-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
   background: transparent;
 }
 .graph-toolbar {
@@ -522,6 +541,10 @@ nav {
   min-width: 45px;
 }
 .timeline-scroll {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   position: relative;
   border: 1px solid var(--line);
   border-radius: 18px;
@@ -534,9 +557,9 @@ nav {
 .timeline-canvas {
   display: block;
   width: 100%;
-  height: auto;
-  min-width: 760px;
-  min-height: 400px;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   font-family: "DM Sans", sans-serif;
 }
 .canvas-date {
@@ -605,6 +628,14 @@ nav {
     opacity var(--feedback),
     filter var(--feedback);
 }
+.universe-line-bridge {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 15;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
 .universe-line-hit {
   fill: none;
   stroke: transparent;
@@ -622,6 +653,10 @@ nav {
   font-size: 18px;
   font-weight: 550;
   fill: var(--ink);
+  paint-order: stroke;
+  stroke: #fff;
+  stroke-width: 6px;
+  stroke-linejoin: round;
   pointer-events: none;
 }
 .event-label {
@@ -660,7 +695,7 @@ nav {
   justify-content: center;
   flex-wrap: wrap;
   gap: 24px;
-  padding: 28px 2px;
+  padding: 12px 2px;
 }
 .canvas-legend {
   display: flex;
@@ -1433,31 +1468,28 @@ nav {
   margin: 0 auto 28px;
   width: 570px;
   max-width: calc(100% - 64px);
-  background: #fffefb;
-  border: 1px solid #d5e1cb;
-  border-radius: 18px;
-  box-shadow:
-    0 8px 35px #31452913,
-    0 1px 2px #31452905;
-  padding: 12px;
   isolation: isolate;
 }
 .floating-composer:focus-within {
-  box-shadow: 0 10px 36px #31452919;
-  border-color: #b9ceaa;
+  box-shadow: none;
 }
 .composer-form {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 8px 9px 8px 16px;
-  border: 1px solid #dfe8d5;
+  border: 1px solid #d5e1cb;
   background: #fff;
-  border-radius: 11px;
+  border-radius: 18px;
+  box-shadow:
+    0 8px 35px #31452913,
+    0 1px 2px #31452905;
 }
 .composer-form:focus-within {
   border-color: #a7bf92;
-  box-shadow: 0 0 0 3px #97b27c13;
+  box-shadow:
+    0 0 0 3px #97b27c13,
+    0 8px 35px #31452913;
 }
 .composer-form input {
   flex: 1;
@@ -1502,6 +1534,10 @@ nav {
   transform: scale(0.94);
 }
 .floating-composer.expanded {
+  background: #fffefb;
+  border: 1px solid #d5e1cb;
+  border-radius: 18px;
+  padding: 12px;
   height: min(670px, calc(100dvh - 130px));
   display: flex;
   flex-direction: column;
@@ -2122,17 +2158,25 @@ nav {
 }
 .timeline-stage {
   position: relative;
-  min-width: 760px;
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  min-width: 0;
 }
 .timeline-stage .timeline-canvas {
+  width: 100%;
+  height: 100%;
   min-height: 0;
+  min-width: 0;
+  aspect-ratio: 1200 / 600;
 }
 .timeline-scroll {
   padding-bottom: 24px;
 }
 .canvas-instruction {
   font-size: 13px;
-  padding: 18px 12px 0;
+  padding: 8px 12px 0;
   color: #4f6250;
 }
 .branch-picker {
@@ -2296,7 +2340,7 @@ nav {
     --sidebar: 184px;
   }
   .workspace-content {
-    padding: 18px 24px 120px;
+    padding: 12px 24px 18px;
   }
   .graph-toolbar {
     margin-bottom: 44px;
@@ -2336,7 +2380,7 @@ nav {
     padding: 12px 14px;
   }
   .workspace-content {
-    padding: 18px 18px 120px;
+    padding: 12px 18px 18px;
   }
   h1 {
     font-size: 28px;
@@ -2474,7 +2518,7 @@ nav {
     padding: 10px 8px;
   }
   .workspace-content {
-    padding: 18px 18px 120px;
+    padding: 12px 18px 18px;
   }
   .graph-toolbar {
     flex-wrap: wrap;
@@ -2708,7 +2752,7 @@ nav {
     margin-left: 0;
   }
   .workspace-content {
-    padding: 32px 24px 255px;
+    padding: 12px 24px 18px;
     min-height: 100dvh;
   }
   h1 {
@@ -2777,7 +2821,7 @@ nav {
     padding: 12px 8px 24px;
   }
   .timeline-canvas {
-    min-width: 760px;
+    min-width: 0;
     min-height: 0;
   }
   .canvas-footer {
@@ -2820,7 +2864,6 @@ nav {
   .floating-composer {
     width: calc(100vw - 36px);
     max-width: 560px;
-    padding: 10px;
     border-radius: 16px;
     left: 50%;
   }
@@ -3382,7 +3425,7 @@ nav {
 }
 @media (max-width: 390px) {
   .workspace-content {
-    padding: 28px 18px 255px;
+    padding: 12px 18px 18px;
   }
   h1 {
     font-size: 26px;
@@ -3427,7 +3470,6 @@ nav {
   }
   .floating-composer {
     width: calc(100vw - 28px);
-    padding: 9px;
   }
   .floating-composer.expanded {
     width: calc(100vw - 18px);
