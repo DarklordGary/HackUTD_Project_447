@@ -15,15 +15,17 @@ Open **http://127.0.0.1:5173**. The seeded financial workspace uses browser loca
 
 ## Try the story
 
-1. From **Timelines**, choose **New universe** and ask **“Can I move to New York?”**, or type directly into the floating Ping composer.
-2. Send **“What if I got a $90,000 job two months after moving?”**. Nemotron uses the current universe as context and chooses the appropriate operation; branches preserve their parents.
-3. Choose **Compare with original**, then use the month slider to compare their net worth, savings, income, cash flow, and debt.
-4. Open **My Baseline**, choose **Update reality** and send **“I got a new job paying $90,000.”**.
-5. **Reality updates** shows the before/after baseline chart and the effect on every universe. The original New York move changes from “Worth exploring” to “On track.”
+Main Reality starts with zero hypothetical branches. Use the always-visible Ping composer:
 
-Existing seeded universes are available immediately on the branching **Main Reality** canvas. Select a line, timeline name, or life-event marker to open its projection chart and **Branch Summary**. Toggle Savings, Net Worth, Cash Flow, or Debt; use the month slider to inspect exact financial breakdowns. The summary includes events, assumptions, CSV export, and controls to edit, branch, compare, archive, or restore a timeline. The floating composer is available across pages. **My Baseline** groups actual income, liquid assets, recurring expenses, debts and investments into financial columns. Use **Settings → Reset demo** to restore the starting state.
+1. **“Can I move to New York?”** creates an independent possibility with disclosed move/rent/local-expense estimates.
+2. **“What if I got a raise of $20,000 annually and waited 3 months before moving?”** creates a connected alternative, preserving the original and rescheduling the entire move group.
+3. **“I got a raise of $40,000 annually.”** updates actual income and recalculates active plans. Satisfied salary prerequisites are fulfilled, rather than added again.
+4. **“I've moved to New York. The delayed version is the one that happened. Use its estimates provisionally.”** records the move in Main Reality and realizes only that plan. Other versions retain their history and no longer replay the completed move.
+5. **“What if I bought a $250,000 boat with $10,000 down, financed at 12% APR for 120 months and $1,500 monthly running costs?”** starts an independent future from actual New York finances. Purchased asset value and depreciation are excluded.
 
-The timeline-first layout follows the four supplied wireframes in `Downloads/hackutdui`: branching routes around Main Reality, sidebar navigation, financial baseline columns, a chart with an adjacent branch summary, and a floating AI composer. The engine, Nemotron tools and persistence remain shared through `src/usePing.ts`; canvas relationships are derived from persisted parent/event IDs rather than decorative sample paths.
+Outcomes depend on the supplied amounts, dates and disclosed estimates. A small actual raise does not guarantee viability. Cash purchases never create modeled loan debt. See [lifecycle implementation and verification](docs/conversational-timeline-implementation.md) for the fixed-date fixture and limitations.
+
+The map remains the primary view. Select a path or event to inspect its projections and Branch Summary. Savings, Net Worth, Cash Flow and Debt share the deterministic engine. The composer and durable active goal retain conversation context across navigation and reload. Manually archived and realized plans retain historical projections; realized plans cannot be restored as pending moves. Settings → Reset demo restores Main Reality with no hypothetical branches.
 
 ## Nemotron on Brev
 
@@ -58,7 +60,7 @@ The bounded agent in `server/agent.ts` requires structured function calls for it
 
 Nemotron determines intent from the conversation. A selected universe supplies context; legacy client mode hints do not restrict the model or choose the applied action. The returned operation controls the client's state update. Parents and unrelated events are preserved; adding a later move does not replace the earlier move. The financial engine still handles all calculations and validates event data. These are calculation/data constraints, not natural-language classification rules.
 
-Only a successful final preview is applied through the existing persistence path. Stale workspace results are rejected. Tool errors are returned to the model for correction, with eight rounds, 24 tool calls, and a 90-second total deadline. The client displays real loading while the request is pending. A static-only deployment does not include the API middleware: run a Node/Vite preview server or port the middleware to your backend.
+Only a successful final preview is applied through the existing persistence path. Applied-preview explanations are generated from deterministic results; raw model-written financial summaries are not used as application feedback. Stale workspace results are rejected. Tool errors are returned to the model for correction, with eight rounds, 24 tool calls, and a 90-second total deadline. The client displays real loading while the request is pending. A static-only deployment does not include the API middleware: run a Node/Vite preview server or port the middleware to your backend.
 
 Live checks against the supplied Brev deployment verified simple chat, reasoning enabled/disabled, profile-reading tools, a salary life update, and a Chicago child branch. Tests also mock SDK requests, reasoning extraction/print ordering, tool-call continuation, invalid tools, and model-selected actions that differ from legacy interface modes.
 
@@ -113,11 +115,13 @@ npm run build
 npm run db:check
 # With the local database running and published:
 npm run test:db
+# Sends five fixture turns to the configured live Nemotron deployment:
+npm run test:lifecycle:live
 ```
 
 Tests cover cent-level calculations, deterministic behavior, scheduled events, debt payoff, insolvency, relative event references, branch independence, reality-update accounting, and the complete demo journey. The database check verifies persistence, restore on a second connection, reactive updates, and stale-write rejection against a real local SpacetimeDB instance.
 
-Production build and HTTP API checks passed. Visual browser QA was blocked by unavailable browser access and denied native Chrome access in this session.
+Lifecycle verification: 73 automated tests, production build, database type check, real database persistence/concurrency check, and an asserted five-turn live Nemotron smoke test pass. The composer journey is tested in jsdom; no visual browser QA was performed for this change.
 
 ## References
 

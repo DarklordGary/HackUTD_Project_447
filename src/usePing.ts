@@ -24,7 +24,7 @@ export function usePing() {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [requestError, setRequestError] = useState("");
-  const [thread, setThread] = useState<Message[]>([]);
+  const [thread, setThread] = useState<Message[]>(state.conversation ?? []);
   const [toolSteps, setToolSteps] = useState<
     { tool: string; status: "ok" | "error" }[]
   >([]);
@@ -39,6 +39,8 @@ export function usePing() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const syncRef = useRef<ReturnType<typeof connectPersistence> | null>(null);
   const latestState = useRef(state);
+  const sending = useRef(false);
+  const retry = useRef<{ prompt: string; operationId: string } | null>(null);
   useEffect(() => setState(upgradeWorkspace), []);
   useEffect(() => {
     latestState.current = state;
@@ -48,7 +50,7 @@ export function usePing() {
   const baseline = useMemo(() => simulate(profile), [profile]);
   const allRows = useMemo(
     () =>
-      new Map(state.universes.map((u) => [u.id, simulate(profile, u.events)])),
+      new Map(state.universes.map((u) => [u.id, simulate(u.finalProfile ?? profile, u.events)])),
     [profile, state.universes],
   );
   const selectedRows = universe ? allRows.get(universe.id)! : baseline;
@@ -105,7 +107,7 @@ export function usePing() {
     setRequestError("");
     setToolSteps([]);
     setMode(next);
-    setThread(target?.messages ?? []);
+    setThread(state.conversation ?? target?.messages ?? []);
     setSelected(target?.id ?? null);
     if (target) setPage("timelines");
     setChat(true);
@@ -117,7 +119,10 @@ export function usePing() {
   }
   async function send(text = input) {
     const prompt = text.trim();
-    if (!prompt || busy) return;
+    if (!prompt || sending.current) return;
+    sending.current = true;
+    const operationId = retry.current?.prompt === prompt ? retry.current.operationId : id();
+    retry.current = { prompt, operationId };
     setRequestError("");
     setInput("");
     setBusy(true);
@@ -136,17 +141,22 @@ export function usePing() {
         universe,
         profile,
         state.universes,
-        history,
+        history, operationId, state.activeGoalId,
       );
       if (
         latestState.current.profile !== state.profile ||
-        latestState.current.universes !== state.universes
+        latestState.current.universes !== state.universes ||
+        latestState.current.appliedOperationIds !== state.appliedOperationIds
       )
         throw new Error(
           "Your financial workspace changed while Ping was thinking. Please resend your request against the updated timelines.",
         );
       setAi(source);
       setToolSteps(tools);
+      if (data.answer || data.clarification) {
+        const messages: Message[] = [...conversation, { id: id(), role: "assistant", text: data.answer ?? data.clarification! }];
+        setState(prev => ({ ...prev, conversation: messages.slice(-20) }));
+      }
       if (data.answer) {
         setThread([
           ...conversation,
@@ -161,16 +171,19 @@ export function usePing() {
         ]);
         return;
       }
+      if (state.appliedOperationIds?.includes(operationId)) { setThread(state.conversation ?? conversation); return; }
       const operation = data.operation ?? mode;
       if (operation === "reality") {
-        const result = applyReality(state, data, prompt);
-        setState(result.state);
+        const result = applyReality(state, { ...data, operationId: data.operationId ?? operationId }, prompt);
+        const messages: Message[] = [...conversation, { id: id(), role: "assistant", text: result.explanation }];
+        setState({ ...result.state, conversation: messages.slice(-20), activeGoalId: data.reality?.move ? undefined : state.activeGoalId });
+        setSelected(null);
         setThread([
           ...conversation,
           {
             id: id(),
             role: "assistant",
-            text: data.explanation ?? result.explanation,
+            text: result.explanation,
           },
         ]);
         setToast("Reality updated. Every universe recalculated.");
@@ -214,10 +227,12 @@ export function usePing() {
           role: "assistant",
           text: data.explanation ?? explain(profile, next, source),
         };
-        next.messages = [...conversation, response];
+        next.messages = [...conversation, response].slice(-20);
         setThread(next.messages);
         setState((prev) => ({
           ...prev,
+          conversation: next.messages.slice(-20), activeGoalId: next.id,
+          appliedOperationIds: [...(prev.appliedOperationIds ?? []), operationId],
           universes:
             operation === "modify" && existing
               ? prev.universes.map((u) => (u.id === existing.id ? next : u))
@@ -245,6 +260,7 @@ export function usePing() {
       );
       setInput(prompt);
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }

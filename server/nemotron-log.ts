@@ -17,6 +17,7 @@ export function loggedNemotronFetch(
     const responseBody = await response.clone().text();
     const record = {
       id: randomUUID(),
+      turnId: env.NEMOTRON_TURN_ID,
       startedAt,
       receivedAt: new Date().toISOString(),
       requestBody: typeof init?.body === "string" ? init.body : null,

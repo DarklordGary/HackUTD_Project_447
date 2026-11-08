@@ -36,10 +36,14 @@ function setup() {
 
 describe("simplified universe map", () => {
   it("keeps Chicago event markers separate from decorative branch junctions", () => {
-    const state = upgradeWorkspace(seed());
-    const chicago = state.universes.find(
-      (universe) => universe.name === "Move to Chicago",
-    )!;
+    const state = seed();
+    const chicago = { ...makeUniverse("Move to Chicago", "A later move", [
+      ...state.universes[0].events,
+      { id: "chicago-move", kind: "expense" as const, label: "Move from New York to Chicago", month: 12, amount: 3000, estimated: true },
+      { id: "chicago-rent", kind: "rent" as const, label: "Chicago apartment", month: 12, amount: 1800, estimated: true },
+      { id: "chicago-refund", kind: "income" as const, label: "Previous apartment deposit", month: 13, amount: 1000, estimated: true },
+    ]), parentId: state.universes[0].id };
+    state.universes.push(chicago);
     render(
       <TimelineCanvas
         universes={selectMapUniverses(state.universes)}
@@ -253,7 +257,7 @@ describe("simplified universe map", () => {
     };
     const { rerender } = render(<TimelineCanvas {...props} />);
     const axis = screen.getByLabelText("Timeline in three-month intervals");
-    expect(within(axis).getByLabelText("Feb 2027, month 3")).toBeTruthy();
+    expect(within(axis).getByLabelText("May 2027, month 6")).toBeTruthy();
     expect(within(axis).getByLabelText("Nov 2027, month 12")).toBeTruthy();
     const move = screen.getByRole("button", { name: "Chicago: Chicago move" });
     const refund = screen.getByRole("button", {
@@ -261,10 +265,10 @@ describe("simplified universe map", () => {
     });
     expect(
       Number(move.querySelector(".marker-dot")!.getAttribute("cx")),
-    ).toBeCloseTo(500 + (12 / 36) * 620);
+    ).toBeCloseTo(120 + (12 / 36) * 810);
     expect(
       Number(refund.querySelector(".marker-dot")!.getAttribute("cx")),
-    ).toBeCloseTo(500 + (13 / 36) * 620);
+    ).toBeCloseTo(120 + (13 / 36) * 810);
     const moveHit = move.querySelector(".event-hit-area")!;
     const refundHit = refund.querySelector(".event-hit-area")!;
     expect(
@@ -278,7 +282,7 @@ describe("simplified universe map", () => {
           .querySelector(".marker-dot")!
           .getAttribute("cx"),
       ),
-    ).toBe(1120);
+    ).toBe(930);
     expect(
       screen.queryByRole("button", { name: "Chicago: Deposit refund" }),
     ).toBeNull();

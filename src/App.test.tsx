@@ -93,7 +93,7 @@ describe("application demo", () => {
       target: { value: "My actual salary is now $90,000." },
     });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    await screen.findByText("Your real salary is updated.");
+    await screen.findByText(/Your real financial profile is updated/);
     await waitFor(() =>
       expect(
         JSON.parse(localStorage.getItem(STORAGE_KEY)!).profile.annualSalary,
@@ -457,7 +457,9 @@ describe("application demo", () => {
       ).toBeTruthy(),
     );
     expect(within(dialog).getByText("Ping used 2 tools")).toBeTruthy();
-    expect(localStorage.getItem(STORAGE_KEY)).toBe(original);
+    const { conversation: _conversation, ...saved } = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(saved).toEqual(JSON.parse(original!));
+    expect(_conversation).toHaveLength(2);
   });
   it("applies a live removal-only edit using the returned event ID", async () => {
     render(<App />);
@@ -516,7 +518,7 @@ describe("application demo", () => {
   it("renders seeded finances, creates and branches a universe, compares paths, and updates reality", async () => {
     render(<App />);
     expect(
-      screen.getByRole("heading", { name: /Your financial multiverse/ }),
+      screen.getByRole("button", { name: "Inspect Main Reality" }),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /My Baseline/ }));
     expect(screen.getByText("$30,400")).toBeTruthy();
@@ -620,7 +622,9 @@ describe("application demo", () => {
         ),
       ).toBeTruthy(),
     );
-    expect(localStorage.getItem(STORAGE_KEY)).toBe(before);
+    const { conversation: _conversation, ...saved } = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+    expect(saved).toEqual(JSON.parse(before!));
+    expect(_conversation).toHaveLength(2);
   });
   it("submits a floating composer prompt directly into a new universe", async () => {
     render(<App />);

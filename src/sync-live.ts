@@ -1,4 +1,5 @@
 import { DbConnection } from "./module_bindings";
+import { workspaceSchema } from "./contracts";
 import type { AppState } from "./types";
 export function connectLive(
   onRemote: (state: AppState) => void,
@@ -27,7 +28,7 @@ export function connectLive(
         const row = conn.db.workspace.owner.find(identity);
         if (!row || row.payload === lastPayload) return;
         try {
-          const remote = JSON.parse(row.payload) as AppState;
+          const remote = workspaceSchema.parse(JSON.parse(row.payload));
           if (
             remote.version !== 1 ||
             !remote.profile ||
@@ -90,7 +91,7 @@ export function connectLive(
         revision = row.revision;
         lastPayload = row.payload;
         queued = undefined;
-        onRemote(JSON.parse(row.payload));
+        onRemote(workspaceSchema.parse(JSON.parse(row.payload)));
       }
       onStatus(
         error instanceof Error && /changed/.test(error.message)

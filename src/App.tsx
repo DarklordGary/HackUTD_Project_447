@@ -1,3 +1,4 @@
+import { currentFacts, eventAmountLabel } from "./engine";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import {
   Archive,
@@ -118,6 +119,7 @@ export default function App() {
       if (previous?.isConnected) previous.focus({ preventScroll: true });
     };
   }, [ping.help, ping.confirmReset]);
+  const facts = currentFacts(profile);
   const active = state.universes.filter((u) => !u.archived);
   const visible = showArchived ? state.universes : active;
   const mapped = visible.filter((universe) =>
@@ -127,27 +129,27 @@ export default function App() {
     ping.openUniverse(u);
     ping.setMonth(month);
     ping.setMode("branch");
-    ping.setThread(u.messages);
+    ping.setThread(state.conversation ?? u.messages);
     ping.setChat(false);
   }
   function showTimelines() {
     ping.navigate("timelines");
     ping.setChat(false);
     ping.setMode("create");
-    ping.setThread([]);
+    ping.setThread(state.conversation ?? []);
   }
   function showBaseline() {
     ping.navigate("baseline");
     ping.setChat(false);
     ping.setMode("create");
-    ping.setThread([]);
+    ping.setThread(state.conversation ?? []);
   }
   function archiveUniverse() {
-    if (!universe) return;
+    if (!universe || universe.archiveReason === "realized") return;
     ping.setState((prev) => ({
       ...prev,
       universes: prev.universes.map((u) =>
-        u.id === universe.id ? { ...u, archived: !u.archived } : u,
+        u.id === universe.id ? { ...u, archived: !u.archived, archiveReason: u.archived ? undefined : "manual" as const, finalProfile: u.archived ? undefined : profile } : u,
       ),
     }));
     ping.setToast(
@@ -334,7 +336,7 @@ export default function App() {
                   className={`status ${!assess(profile, universe).viable ? "warning" : ""}`}
                 >
                   {universe.archived
-                    ? "Archived"
+                    ? universe.archiveReason === "realized" ? "Realized" : "Archived"
                     : assess(profile, universe).status}
                 </span>
               </div>
@@ -429,17 +431,7 @@ export default function App() {
                               <small>{monthLabel(profile, e.month)}</small>
                               <b>{e.label}</b>
                               <span>
-                                {money(e.amount)}
-                                {e.kind === "salary"
-                                  ? "/year"
-                                  : [
-                                        "rent",
-                                        "monthly-expense",
-                                        "debt-payment",
-                                        "contribution",
-                                      ].includes(e.kind)
-                                    ? "/mo"
-                                    : ""}{" "}
+                                {eventAmountLabel(e)}{" "}
                                 · {e.estimated ? "Estimate" : "Scenario input"}
                               </span>
                             </button>
@@ -561,10 +553,11 @@ export default function App() {
                         </button>
                         <button
                           className="text-button archive-button"
+                          disabled={universe.archiveReason === "realized"}
                           onClick={archiveUniverse}
                         >
                           <Archive size={13} />
-                          {universe.archived
+                          {universe.archiveReason === "realized" ? "Completed in Main Reality" : universe.archived
                             ? "Restore timeline"
                             : "Archive timeline"}
                         </button>
@@ -595,11 +588,11 @@ export default function App() {
                   rows={[
                     [
                       "Primary job",
-                      `${money((profile.annualSalary * (1 - profile.taxRate)) / 12)}/mo`,
+                      `${money((facts.annualSalary * (1 - profile.taxRate)) / 12)}/mo`,
                     ],
                     [
                       "Gross annual salary",
-                      `${money(profile.annualSalary)}/yr`,
+                      `${money(facts.annualSalary)}/yr`,
                     ],
                     ["Effective tax rate", `${profile.taxRate * 100}% est.`],
                   ]}
@@ -608,10 +601,10 @@ export default function App() {
                   title="Liquid Assets"
                   subtitle="Ready when life happens"
                   totalLabel="Total available"
-                  total={profile.checking + profile.savings}
+                  total={baseline[0].liquid}
                   rows={[
-                    ["Checking account", money(profile.checking)],
-                    ["Savings account", money(profile.savings)],
+                    ["Checking account", money(baseline[0].checking)],
+                    ["Savings account", money(baseline[0].savings)],
                     [
                       "Savings interest",
                       `${(profile.savingsRate * 100).toFixed(1)}% APR est.`,
@@ -623,14 +616,14 @@ export default function App() {
                   subtitle="Your regular commitments"
                   totalLabel="Monthly living expenses"
                   total={
-                    profile.rent +
-                    profile.recurring +
+                    facts.rent +
+                    facts.recurring +
                     profile.variable +
                     profile.obligations
                   }
                   rows={[
-                    ["Rent", `${money(profile.rent)}/mo`],
-                    ["Bills & subscriptions", `${money(profile.recurring)}/mo`],
+                    ["Rent", `${money(facts.rent)}/mo`],
+                    ["Bills & subscriptions", `${money(facts.recurring)}/mo`],
                     ["Variable spending", `${money(profile.variable)}/mo`],
                     ["Other obligations", `${money(profile.obligations)}/mo`],
                   ]}
@@ -1539,18 +1532,19 @@ function Updates({
             </span>
           </div>
           <div className="ripple-universes">
-            {ping.state.universes.map((u) => {
+            {ping.state.universes.filter(u => !u.archived).map((u) => {
+              const impact = latest.impacts?.find(i => i.id === u.id);
               const prev = assess(latest.before, u),
                 next = assess(ping.profile, u);
               return (
                 <button key={u.id} onClick={() => onSelect(u)}>
                   <b>{u.name}</b>
                   <span>
-                    {money(prev.rows[36].netWorth)} <ArrowRight size={12} />{" "}
-                    {money(next.rows[36].netWorth)}
+                    {money(impact?.beforeNetWorth ?? prev.rows[36].netWorth)} <ArrowRight size={12} />{" "}
+                    {money(impact?.afterNetWorth ?? next.rows[36].netWorth)}
                   </span>
                   <span className={`status ${!next.viable ? "warning" : ""}`}>
-                    {!prev.viable && next.viable ? "Newly viable" : next.status}
+                    {!(impact?.beforeViable ?? prev.viable) && (impact?.afterViable ?? next.viable) ? "Newly viable" : next.status}
                   </span>
                 </button>
               );

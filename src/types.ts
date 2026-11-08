@@ -5,7 +5,8 @@ export type EventKind =
   | "income"
   | "monthly-expense"
   | "debt-payment"
-  | "contribution";
+  | "contribution"
+  | "financed-purchase";
 export interface FinancialEvent {
   id: string;
   kind: EventKind;
@@ -13,6 +14,11 @@ export interface FinancialEvent {
   month: number;
   amount: number;
   estimated: boolean;
+  groupId?: string;
+  destination?: string;
+  salary?: { mode: "delta" | "absolute" | "percent"; value: number; baseline: number; purpose: "prerequisite" | "additional" | "counterfactual"; status?: "pending" | "fulfilled" | "conflict" };
+  financing?: { downPayment: number; apr: number; termMonths: number; payment?: number; runningCosts: number };
+  fulfilledBy?: string;
 }
 export interface Profile {
   name: string;
@@ -20,6 +26,8 @@ export interface Profile {
   startDate: string;
   checking: number;
   savings: number;
+  openingAnnualSalary?: number;
+  openingRent?: number;
   annualSalary: number;
   taxRate: number;
   rent: number;
@@ -38,6 +46,8 @@ export interface Profile {
   investmentReturn: number;
   savingsRate: number;
   updatedAt: string;
+  assessmentDate?: string;
+  actualEvents?: { id: string; effectiveDate: string; sourceUniverseId?: string; location?: string; events: FinancialEvent[] }[];
 }
 export interface Projection {
   month: number;
@@ -62,6 +72,10 @@ export interface Message {
 }
 export interface Universe {
   archived?: boolean;
+  archiveReason?: "manual" | "realized";
+  realizedAt?: string;
+  realityChangeId?: string;
+  finalProfile?: Profile;
   id: string;
   name: string;
   description: string;
@@ -83,6 +97,7 @@ export interface Notice {
 }
 export interface RealityChange {
   id: string;
+  impacts?: { id: string; name: string; beforeViable: boolean; afterViable: boolean; beforeNetWorth: number; afterNetWorth: number; assumptions: string[] }[];
   prompt: string;
   before: Profile;
   after: Profile;
@@ -95,5 +110,8 @@ export interface AppState {
   universes: Universe[];
   notices: Notice[];
   changes: RealityChange[];
+  conversation?: Message[];
+  activeGoalId?: string;
+  appliedOperationIds?: string[];
 }
 export type Mode = "create" | "modify" | "branch" | "reality";

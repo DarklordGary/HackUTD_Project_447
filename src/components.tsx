@@ -1,3 +1,4 @@
+import { eventAmountLabel } from "./engine";
 import { useEffect, useId, useRef, useState } from "react";
 import {
   ArrowDownLeft,
@@ -274,7 +275,7 @@ export function ProjectionChart({
                 }}
               >
                 <title>
-                  {event.label} · {money(event.amount)}
+                  {event.label} · {eventAmountLabel(event)}
                 </title>
                 <circle
                   cx={x(event.month)}

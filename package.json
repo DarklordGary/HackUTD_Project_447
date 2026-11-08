@@ -13,6 +13,7 @@
     "db:publish": "node scripts/database.mjs publish",
     "db:check": "tsc --project spacetimedb/tsconfig.json",
     "test:db": "tsx scripts/verify-sync.ts",
+    "test:lifecycle:live": "tsx scripts/verify-lifecycle.ts",
     "nemotron:chat": "tsx scripts/nemotron-chat.ts"
   },
   "dependencies": {

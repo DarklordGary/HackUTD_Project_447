@@ -4,6 +4,8 @@ import { z } from "zod";
 import { messageSchema, profileSchema, universeSchema } from "../src/contracts";
 import { runNemotronAgent } from "./agent";
 const requestSchema = z.object({
+  operationId: z.string().max(100).optional(),
+  activeGoalId: z.string().max(100).optional(),
   prompt: z.string().min(1).max(2000),
   mode: z.enum(["create", "modify", "branch", "reality"]).default("create"),
   universe: universeSchema.optional(),
@@ -52,6 +54,7 @@ export function scenarioApi(env: Record<string, string>): Plugin {
       const result = await runNemotronAgent(
         {
           prompt: input.prompt,
+          operationId: input.operationId, activeGoalId: input.activeGoalId,
           mode: input.mode,
           profile: input.profile,
           universes,

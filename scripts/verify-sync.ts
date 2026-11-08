@@ -3,6 +3,14 @@ import { seed } from "../src/seed";
 const uri = process.env.SPACETIMEDB_URI || "ws://127.0.0.1:3000";
 const database = process.env.SPACETIMEDB_DATABASE || "ping-local";
 const state = seed();
+state.examplesVersion = 2;
+state.appliedOperationIds = ["sync-realization-fixture"];
+state.conversation = [{ id: "sync-message", role: "user", text: "I moved" }];
+state.universes[0].archived = true;
+state.universes[0].archiveReason = "realized";
+state.universes[0].realityChangeId = "sync-realization-fixture";
+state.profile.actualEvents = [{ id: "sync-realization-fixture", effectiveDate: "2026-11-08", sourceUniverseId: state.universes[0].id,
+  events: [{ id: "actual-moving-cost", kind: "expense", month: 1, amount: 4500, estimated: true, label: "Actual moving cost estimate" }] }];
 let token = "";
 let first: DbConnection, second: DbConnection;
 const timeout = setTimeout(() => {
@@ -51,7 +59,7 @@ try {
           .onApplied(async () => {
             try {
               const row = conn.db.workspace.owner.find(identity);
-              if (!row || JSON.parse(row.payload).universes.length !== 3)
+              if (!row || JSON.stringify(JSON.parse(row.payload)) !== JSON.stringify(state))
                 throw new Error("Persisted workspace was not restored");
               first.db.workspace.onUpdate((_ctx, _oldRow, newRow) => {
                 if (

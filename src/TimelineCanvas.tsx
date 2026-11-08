@@ -1,7 +1,7 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Profile, Universe } from "./types";
-import { monthLabel, money } from "./engine";
+import { monthLabel, money, eventAmountLabel } from "./engine";
 
 interface Lane {
   universe: Universe;
@@ -11,7 +11,7 @@ interface Lane {
   parent?: Lane;
 }
 function financialKey(e: Universe["events"][number]) {
-  return `${e.kind}:${e.month}:${e.amount}`;
+  return `${e.kind}:${e.month}:${e.amount}:${e.fulfilledBy ?? ""}:${JSON.stringify(e.salary ?? e.financing ?? null)}`;
 }
 /** Lane relationships come from parent IDs. Curves begin three months before the first changed event. */
 export function layoutTimelines(universes: Universe[]) {
@@ -97,7 +97,7 @@ function mapEvents(node: Lane) {
     ]) ?? [],
   );
   return node.universe.events.filter(
-    (event) => inherited.get(event.id) !== financialKey(event),
+    (event) => !event.fulfilledBy && event.salary?.status !== "fulfilled" && inherited.get(event.id) !== financialKey(event),
   );
 }
 
@@ -609,17 +609,7 @@ export default function TimelineCanvas({
                     {event.estimated && <small>Estimate</small>}
                   </span>
                   <b>
-                    {money(event.amount)}
-                    {event.kind === "salary"
-                      ? "/yr"
-                      : [
-                            "rent",
-                            "monthly-expense",
-                            "debt-payment",
-                            "contribution",
-                          ].includes(event.kind)
-                        ? "/mo"
-                        : ""}
+                    {eventAmountLabel(event)}
                   </b>
                 </div>
               ))}

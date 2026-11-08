@@ -18,6 +18,52 @@ export function monthLabel(profile: Profile, month: number, long = false) {
     year: "numeric",
   });
 }
+export function dateMonth(profile: Profile, date: string) {
+  const [y, m] = date.split("-").map(Number), [sy, sm] = profile.startDate.split("-").map(Number);
+  return (y - sy) * 12 + m - sm;
+}
+/** Current recurring facts only; opening cash is never advanced by this read. */
+export function currentFacts(profile: Profile) {
+  const facts = { annualSalary: profile.openingAnnualSalary ?? profile.annualSalary, rent: profile.openingRent ?? profile.rent, recurring: profile.recurring };
+  const now = profile.assessmentDate ?? new Date().toISOString().slice(0,10);
+  const month = dateMonth(profile, now);
+  const events = (profile.actualEvents ?? []).filter(a => a.effectiveDate <= now).flatMap(a => a.events.map(e => ({ ...e, month: dateMonth(profile, a.effectiveDate) + e.month - 1 }))).sort((a,b) => a.month-b.month);
+  for (const e of events.filter(e => e.month <= month)) {
+    if (e.kind === "salary") facts.annualSalary = e.amount;
+    if (e.kind === "rent") facts.rent = e.amount;
+    if (e.kind === "monthly-expense") facts.recurring += e.amount;
+  }
+  return facts;
+}
+export function salaryTarget(salary: NonNullable<FinancialEvent["salary"]>) {
+  return round(salary.mode === "absolute" ? salary.value : salary.baseline +
+    (salary.mode === "percent" ? salary.baseline * salary.value / 100 : salary.value));
+}
+export function loanPayment(principal: number, apr: number, term: number) {
+  const r = apr / 12;
+  return round(r ? principal * r / (1 - Math.pow(1 + r, -term)) : principal / term);
+}
+export function eventAmountLabel(event: FinancialEvent) {
+  if (event.salary) {
+    const s = event.salary;
+    if (s.mode === "absolute") return `${money(s.value)}/yr salary`;
+    const raise = s.mode === "percent" ? `${s.value}%` : money(s.value);
+    return s.purpose === "additional" ? `${raise} additional annual raise` : `${raise} raise; ${money(salaryTarget(s))}/yr target${s.status === "fulfilled" ? " (fulfilled)" : ""}`;
+  }
+  if (event.financing) return `${money(event.amount)} price; ${money(event.financing.downPayment)} down`;
+  return money(event.amount) + (event.kind === "salary" ? "/yr" : ["rent", "monthly-expense", "debt-payment", "contribution"].includes(event.kind) ? "/mo" : "");
+}
+export function validateEvent(event: FinancialEvent) {
+  if (event.salary && event.kind !== "salary") throw new Error("Salary semantics require a salary event.");
+  if (event.kind === "financed-purchase") {
+    const f = event.financing;
+    if (!f || ![f.downPayment, f.apr, f.termMonths, f.runningCosts, event.amount].every(Number.isFinite) || f.downPayment < 0 || f.downPayment > event.amount || f.apr < 0 || f.apr > 1 || !Number.isInteger(f.termMonths) || f.termMonths < 1 || f.termMonths > 600 || f.runningCosts < 0) throw new Error("Purchase requires valid financing and down payment.");
+    const principal = round(event.amount - f.downPayment);
+    if (principal > 1000000) throw new Error("Borrowing cap is $1,000,000.");
+    if (principal > 0 && f.payment !== undefined && f.payment < loanPayment(principal, f.apr, f.termMonths))
+      throw new Error("Payment is insufficient to amortize the loan within its term.");
+  } else if (event.financing) throw new Error("Financing requires a financed-purchase event.");
+}
 /** All arithmetic happens here, independently of interpretation. Amounts are USD, APRs decimal. */
 export function simulate(
   profile: Profile,
@@ -27,15 +73,43 @@ export function simulate(
   let checking = profile.checking,
     savings = profile.savings,
     investments = profile.investments;
-  let salary = profile.annualSalary,
-    rent = profile.rent,
+  let salary = profile.openingAnnualSalary ?? profile.annualSalary,
+    rent = profile.openingRent ?? profile.rent,
     extraExpense = 0,
     extraDebt = 0,
     contribution = profile.contribution;
   const debts = profile.debts.map((d) => ({ ...d }));
-  const scheduled = events
-    .map((e, i) => ({ ...e, order: i }))
+  events.forEach(validateEvent);
+  const actual = (profile.actualEvents ?? []).flatMap(entry => entry.events.map(e => ({ ...e,
+    month: dateMonth(profile, entry.effectiveDate) + e.month - 1,
+  })));
+  const scheduled = [...actual, ...events.filter(e => !e.fulfilledBy)]
+    .map((e, i) => { validateEvent(e); return { ...e, order: i }; })
     .sort((a, b) => a.month - b.month || a.order - b.order);
+  function applyEvent(event: FinancialEvent) {
+    if (event.kind === "salary") {
+      if (!event.salary) salary = event.amount;
+      else if (event.salary.status !== "fulfilled") salary = event.salary.purpose === "additional"
+        ? salaryTarget({ ...event.salary, baseline: salary }) : event.salary.purpose === "prerequisite" ? Math.max(salary, salaryTarget(event.salary)) : salaryTarget(event.salary);
+    }
+    if (event.kind === "rent") rent = event.amount;
+    if (event.kind === "monthly-expense") extraExpense += event.amount;
+    if (event.kind === "debt-payment") extraDebt = event.amount;
+    if (event.kind === "contribution") contribution = event.amount;
+    if (event.kind === "financed-purchase") {
+      const f = event.financing!, principal = round(event.amount - f.downPayment);
+      debts.push({ id: event.id, name: event.label, balance: principal, apr: f.apr,
+        payment: f.payment ?? loanPayment(principal, f.apr, f.termMonths) });
+      extraExpense += f.runningCosts;
+      return f.downPayment;
+    }
+    return event.kind === "expense" ? event.amount : event.kind === "income" ? -event.amount : 0;
+  }
+  // Boundary events are booked once against opening cash, without advancing a month of income.
+  for (const event of scheduled.filter(e => e.month <= 0)) {
+    const cost = applyEvent(event), fromSavings = Math.min(savings, Math.max(0, cost));
+    savings = round(savings - fromSavings); checking = round(checking - cost + fromSavings);
+  }
   const startingDebt = debts.reduce((s, d) => s + d.balance, 0);
   const result: Projection[] = [
     {
@@ -58,14 +132,9 @@ export function simulate(
   for (let month = 1; month <= months; month++) {
     let oneTimeExpense = 0,
       oneTimeIncome = 0;
-    for (const event of scheduled.filter((e) => e.month === month)) {
-      if (event.kind === "salary") salary = event.amount;
-      if (event.kind === "rent") rent = event.amount;
-      if (event.kind === "monthly-expense") extraExpense += event.amount;
-      if (event.kind === "debt-payment") extraDebt = event.amount;
-      if (event.kind === "contribution") contribution = event.amount;
-      if (event.kind === "expense") oneTimeExpense += event.amount;
-      if (event.kind === "income") oneTimeIncome += event.amount;
+    for (const event of scheduled.filter(e => e.month === month)) {
+      const cost = applyEvent(event);
+      if (cost >= 0) oneTimeExpense += cost; else oneTimeIncome -= cost;
     }
     const income = round((salary * (1 - profile.taxRate)) / 12 + oneTimeIncome);
     let debtPayments = 0,
@@ -127,21 +196,30 @@ export function simulate(
   return result;
 }
 export function assess(profile: Profile, universe: Universe) {
+  profile = universe.finalProfile ?? profile;
   const rows = simulate(profile, universe.events);
-  const move = universe.events.find((e) => e.kind === "rent");
-  const month = move?.month ?? 1;
-  const future = rows.slice(month);
-  const reserve =
-    (profile.rent +
-      profile.recurring +
-      profile.variable +
-      profile.obligations) *
-    3;
-  const minimum = Math.min(...future.map((r) => r.liquid));
-  const viable =
-    minimum >= reserve && future.slice(-6).every((r) => r.netCashFlow >= 0);
+  // Evaluate every projected month against its own recurring living costs; one-time costs
+  // reduce liquidity but do not inflate the emergency reserve. Include boundary liquidity.
+  const recurring = universe.events.filter(e => !e.fulfilledBy && ["rent", "monthly-expense", "financed-purchase"].includes(e.kind));
+  const reserves = rows.slice(1).map(row => {
+    let rent = profile.openingRent ?? profile.rent, extra = 0;
+    const actual = (profile.actualEvents ?? []).flatMap(a => a.events.map(e => ({ ...e, month: dateMonth(profile, a.effectiveDate) + e.month - 1 })));
+    for (const e of [...actual, ...recurring].sort((a,b) => a.month - b.month)) {
+      if (e.month > row.month) continue;
+      if (e.kind === "rent") rent = e.amount;
+      if (e.kind === "monthly-expense") extra += e.amount;
+      if (e.kind === "financed-purchase") extra += e.financing!.runningCosts;
+    }
+    return (rent + profile.recurring + profile.variable + profile.obligations + extra) * 3;
+  });
+  const reserve = Math.max(...reserves);
+  const minimum = Math.min(...rows.map(r => r.liquid));
+  const firstShortfall = rows.find((r, i) => r.liquid < reserves[Math.max(0, i - 1)]);
+  const viable = !firstShortfall && rows.slice(-6).every(r => r.netCashFlow >= 0);
   return {
     viable,
+    firstShortfall,
+    shortfallReserve: firstShortfall ? reserves[Math.max(0, firstShortfall.month - 1)] : undefined,
     minimum,
     reserve,
     status: viable

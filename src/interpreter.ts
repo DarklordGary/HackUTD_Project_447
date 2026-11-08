@@ -10,6 +10,8 @@ export async function interpret(
   profile?: Profile,
   universes: Universe[] = [],
   history: Message[] = [],
+  operationId?: string,
+  activeGoalId?: string,
 ): Promise<{
   data: Interpretation;
   source: string;
@@ -20,6 +22,7 @@ export async function interpret(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       prompt,
+      operationId, activeGoalId,
       mode,
       universe: universe ? { ...universe, messages: [] } : undefined,
       profile,
