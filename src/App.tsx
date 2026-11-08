@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Archive,
   ArrowDownToLine,
@@ -16,6 +16,8 @@ import {
   Maximize2,
   MessageCircle,
   Minimize2,
+  Map,
+  List,
   Plus,
   RefreshCw,
   Send,
@@ -29,8 +31,15 @@ import type { PingController } from "./usePing";
 import type { Mode, Universe } from "./types";
 import { assess, milestones, money, monthLabel, simulate } from "./engine";
 import { seed } from "./seed";
-import { Breakdown, Parrot, ProjectionChart, UniverseIcon } from "./components";
-import TimelineCanvas from "./TimelineCanvas";
+import { upgradeWorkspace } from "./workspace-upgrade";
+import {
+  AnimatedValue,
+  Breakdown,
+  Parrot,
+  ProjectionChart,
+  UniverseIcon,
+} from "./components";
+import TimelineCanvas, { selectMapUniverses } from "./TimelineCanvas";
 
 type Metric = "savings" | "netWorth" | "netCashFlow" | "debt";
 export default function App() {
@@ -39,14 +48,89 @@ export default function App() {
   const [metric, setMetric] = useState<Metric>("savings");
   const [showArchived, setShowArchived] = useState(false);
   const [baselineChart, setBaselineChart] = useState(false);
-  const active = state.universes.filter((u) => !u.archived);
-  const visibleIds = new Set(
-    (showArchived ? state.universes : active).map((u) => u.id),
+  const [timelineView, setTimelineView] = useState<"map" | "list">(() =>
+    window.matchMedia?.("(max-width: 700px)").matches ? "list" : "map",
   );
-  for (let i = 0; i < state.universes.length; i++)
-    for (const u of state.universes)
-      if (visibleIds.has(u.id) && u.parentId) visibleIds.add(u.parentId);
-  const visible = state.universes.filter((u) => visibleIds.has(u.id));
+  const [selectedBranches, setSelectedBranches] = useState<string[]>(() => {
+    try {
+      const saved = JSON.parse(
+        localStorage.getItem("ping.map.visible.v1") || "null",
+      );
+      if (Array.isArray(saved) && saved.every((id) => typeof id === "string"))
+        return saved;
+    } catch {
+      /* Use the default visible branch family. */
+    }
+    return selectMapUniverses(state.universes.filter((u) => !u.archived)).map(
+      (u) => u.id,
+    );
+  });
+  const knownBranches = useRef(new Set(state.universes.map((u) => u.id)));
+  useEffect(() => {
+    const added = state.universes
+      .filter((u) => !u.archived && !knownBranches.current.has(u.id))
+      .map((u) => u.id);
+    const existing = new Set(state.universes.map((u) => u.id));
+    knownBranches.current = existing;
+    if (added.length)
+      setSelectedBranches((ids) => [
+        ...new Set([...ids.filter((id) => existing.has(id)), ...added]),
+      ]);
+  }, [state.universes]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "ping.map.visible.v1",
+        JSON.stringify(selectedBranches),
+      );
+    } catch {
+      /* Keep selections for this session. */
+    }
+  }, [selectedBranches]);
+  const mainRef = useRef<HTMLElement>(null);
+  const modalRef = useRef<HTMLElement>(null);
+  const route = `${page}:${universe?.id ?? "root"}`;
+  const previousRoute = useRef(route);
+  useEffect(() => {
+    if (previousRoute.current !== route && !ping.chat)
+      mainRef.current?.focus({ preventScroll: true });
+    previousRoute.current = route;
+  }, [route, ping.chat]);
+  useEffect(() => {
+    if (!ping.help && !ping.confirmReset) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const root = modalRef.current;
+    const focusable = () =>
+      Array.from(
+        root?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), input, select, [tabindex="0"]',
+        ) ?? [],
+      );
+    focusable()[0]?.focus();
+    const trap = (event: KeyboardEvent) => {
+      if (event.key !== "Tab") return;
+      const elements = focusable(),
+        first = elements[0],
+        last = elements.at(-1);
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+    document.addEventListener("keydown", trap);
+    return () => {
+      document.removeEventListener("keydown", trap);
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+    };
+  }, [ping.help, ping.confirmReset]);
+  const active = state.universes.filter((u) => !u.archived);
+  const visible = showArchived ? state.universes : active;
+  const mapped = visible.filter((universe) =>
+    selectedBranches.includes(universe.id),
+  );
   function selectUniverse(u: Universe, month = 12) {
     ping.openUniverse(u);
     ping.setMonth(month);
@@ -125,8 +209,6 @@ export default function App() {
             ping<span className="brand-dot">.</span>
           </span>
         </button>
-        <span className="workspace-name">YOUR FINANCIAL MULTIVERSE</span>
-        <span className="nav-caption">Menu</span>
         <nav aria-label="Main navigation">
           <button
             className={`nav-item ${page === "timelines" || page === "compare" ? "active" : ""}`}
@@ -142,6 +224,7 @@ export default function App() {
             className={`nav-item ${page === "baseline" ? "active" : ""}`}
             onClick={showBaseline}
             aria-label="My Baseline"
+            aria-current={page === "baseline" ? "page" : undefined}
           >
             <TrendingUp size={19} />
             <span>My Baseline</span>
@@ -149,6 +232,7 @@ export default function App() {
           <button
             className={`nav-item ${page === "settings" ? "active" : ""}`}
             aria-label="Settings"
+            aria-current={page === "settings" ? "page" : undefined}
             onClick={() => {
               ping.navigate("settings");
               ping.setChat(false);
@@ -161,9 +245,7 @@ export default function App() {
         <div className="sidebar-bottom">
           <div className="workspace-health">
             <i />
-            <div>
-              Your reality, connected<small>{ping.storage}</small>
-            </div>
+            <div>{ping.storage}</div>
           </div>
           <button className="help-button" onClick={() => ping.setHelp(true)}>
             <HelpCircle size={17} />
@@ -181,6 +263,14 @@ export default function App() {
       </aside>
       <div className="main-shell">
         <header className="topbar">
+          <button
+            className="mobile-brand"
+            aria-label="Ping home"
+            onClick={showTimelines}
+          >
+            <Parrot size={32} />
+            <span>ping.</span>
+          </button>
           <div className="breadcrumb">
             <span>Personal workspace</span>
             <span className="breadcrumb-slash">/</span>
@@ -203,25 +293,26 @@ export default function App() {
             <span>
               {ping.unread
                 ? `${ping.unread} new ${ping.unread === 1 ? "update" : "updates"}`
-                : "All caught up"}
+                : "Updates"}
             </span>
             {ping.unread > 0 && <i />}
           </button>
         </header>
         <main
+          key={route}
+          ref={mainRef}
+          tabIndex={-1}
+          aria-label={title}
           className={`workspace-content ${page === "timelines" && !universe ? "canvas-workspace" : ""}`}
         >
           {page === "timelines" && !universe && (
             <section className="canvas-panel">
               <div className="graph-toolbar">
                 <div>
-                  <div className="eyebrow">
-                    ONE REALITY. MANY POSSIBILITIES.
-                  </div>
                   <h1>Your financial multiverse</h1>
+                  <p>One starting point. A little room for what’s next.</p>
                 </div>
                 <div className="toolbar-actions">
-                  <Horizon value={ping.horizon} onChange={ping.setHorizon} />
                   <button
                     className="secondary-button compare-action"
                     onClick={() => ping.setPage("compare")}
@@ -236,65 +327,107 @@ export default function App() {
                   </button>
                 </div>
               </div>
-              <div className="canvas-description">
-                <span>
-                  <span className="live-dot" /> Live from your baseline
+              <div className="canvas-topline">
+                <div
+                  className="view-switch"
+                  role="group"
+                  aria-label="Timeline view"
+                >
+                  <button
+                    aria-pressed={timelineView === "map"}
+                    onClick={() => setTimelineView("map")}
+                  >
+                    <Map size={16} /> Map
+                  </button>
+                  <button
+                    aria-pressed={timelineView === "list"}
+                    onClick={() => setTimelineView("list")}
+                  >
+                    <List size={16} /> List
+                  </button>
+                </div>
+                <span className="timeline-count">
+                  {timelineView === "map"
+                    ? `${mapped.length} branches`
+                    : `${active.length} possibilities`}
                 </span>
-                <p>
-                  Every branch is a different way life could unfold. Select a
-                  path to explore.
-                </p>
+                {timelineView === "map" && (
+                  <BranchPicker
+                    universes={visible}
+                    selected={selectedBranches}
+                    onChange={setSelectedBranches}
+                  />
+                )}
+                <Horizon value={ping.horizon} onChange={ping.setHorizon} />
               </div>
-              <TimelineCanvas
-                universes={visible}
-                profile={profile}
-                horizon={ping.horizon}
-                onSelect={selectUniverse}
-                onReality={showBaseline}
-              />
+              {timelineView === "map" && (
+                <TimelineCanvas
+                  universes={mapped}
+                  colorUniverses={state.universes}
+                  profile={profile}
+                  horizon={ping.horizon}
+                  onSelect={selectUniverse}
+                  onReality={showBaseline}
+                  onBranch={(universe) => ping.openChat("branch", universe)}
+                />
+              )}
               <div className="canvas-footer">
-                <div className="canvas-legend">
+                <div
+                  className="canvas-legend"
+                  role="group"
+                  aria-label="Chart legend"
+                >
                   <span>
                     <i className="reality-line" /> Main Reality
                   </span>
                   <span>
-                    <i className="possibility-line" /> Hypothetical path
+                    <span className="universe-swatches" aria-hidden="true">
+                      <i />
+                      <i />
+                      <i />
+                    </span>{" "}
+                    Possible futures
                   </span>
                   <span>
                     <i className="event-circle" /> Life event
                   </span>
                 </div>
-                <label className="archive-toggle">
-                  <input
-                    type="checkbox"
-                    checked={showArchived}
-                    onChange={(e) => setShowArchived(e.target.checked)}
-                  />{" "}
-                  Show archived
-                </label>
+                {state.universes.some((u) => u.archived) && (
+                  <label className="archive-toggle">
+                    <input
+                      type="checkbox"
+                      checked={showArchived}
+                      onChange={(e) => setShowArchived(e.target.checked)}
+                    />{" "}
+                    Show archived
+                  </label>
+                )}
               </div>
-              <div className="timeline-directory" aria-label="Your timelines">
-                {(showArchived ? state.universes : active).map((u) => (
-                  <div className="directory-item" key={u.id}>
-                    <button onClick={() => selectUniverse(u)}>
-                      <UniverseIcon icon={u.icon} size={16} />
-                      <span>{u.name}</span>
-                      <span
-                        className={`status ${!assess(profile, u).viable ? "warning" : ""}`}
+              {timelineView === "list" && (
+                <div className="timeline-directory" aria-label="Your timelines">
+                  {(showArchived ? state.universes : active).map((u) => (
+                    <div className="directory-item" key={u.id}>
+                      <button onClick={() => selectUniverse(u)}>
+                        <UniverseIcon icon={u.icon} size={16} />
+                        <span>{u.name}</span>
+                        <small>{u.description}</small>
+                        <span
+                          className={`status ${!assess(profile, u).viable ? "warning" : ""}`}
+                        >
+                          {u.archived ? "Archived" : assess(profile, u).status}
+                        </span>
+                      </button>
+                      <button
+                        className="icon-button"
+                        aria-label={`Branch ${u.name}`}
+                        onClick={() => ping.openChat("branch", u)}
                       >
-                        {u.archived ? "Archived" : assess(profile, u).status}
-                      </span>
-                    </button>
-                    <button
-                      className="icon-button"
-                      aria-label={`Branch ${u.name}`}
-                      onClick={() => ping.openChat("branch", u)}
-                    >
-                      <GitBranch size={15} />
-                    </button>
-                  </div>
-                ))}
-              </div>
+                        <GitBranch size={15} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               {!active.length && (
                 <div className="empty-state">
                   <GitBranch size={28} />
@@ -396,19 +529,15 @@ export default function App() {
                       label="Savings in 3 years"
                       amount={selectedRows[36].savings}
                     />
-                    <SummaryRow
-                      label="Cash flow at year 3"
-                      amount={selectedRows[36].netCashFlow}
-                    />
-                    <SummaryRow
-                      label="Debt remaining"
-                      amount={selectedRows[36].debt}
-                    />
                   </div>
-                  <div className="summary-section">
-                    <h3>
-                      Life events <span>{universe.events.length}</span>
-                    </h3>
+                  <details className="summary-section events-disclosure">
+                    <summary>
+                      <span>
+                        {universe.events.length} scheduled{" "}
+                        {universe.events.length === 1 ? "event" : "events"}
+                      </span>
+                      <ChevronDown size={16} />
+                    </summary>
                     <div className="event-list">
                       {universe.events
                         .slice()
@@ -461,7 +590,7 @@ export default function App() {
                           </div>
                         ))}
                     </div>
-                  </div>
+                  </details>
                   {milestones(selectedRows).length > 0 && (
                     <details className="assumptions milestone-summary">
                       <summary>
@@ -525,37 +654,45 @@ export default function App() {
                     >
                       <SlidersHorizontal size={15} /> Modify assumptions
                     </button>
-                    <button
-                      className="secondary-button"
-                      onClick={() => {
-                        ping.setCompareIds([
-                          universe.parentId ??
-                            state.universes.find((u) => u.id !== universe.id)
-                              ?.id ??
-                            universe.id,
-                          universe.id,
-                        ]);
-                        ping.setPage("compare");
-                        ping.setChat(false);
-                      }}
-                    >
-                      <Layers size={15} /> Compare with original
-                    </button>
-                    <button
-                      className="text-button"
-                      onClick={() => ping.openChat("reality")}
-                    >
-                      <RefreshCw size={13} /> Update reality
-                    </button>
-                    <button
-                      className="text-button archive-button"
-                      onClick={archiveUniverse}
-                    >
-                      <Archive size={13} />
-                      {universe.archived
-                        ? "Restore timeline"
-                        : "Archive timeline"}
-                    </button>
+                    <details className="timeline-tools">
+                      <summary>
+                        More actions <ChevronDown size={15} />
+                      </summary>
+                      <div>
+                        <button
+                          className="secondary-button"
+                          onClick={() => {
+                            ping.setCompareIds([
+                              universe.parentId ??
+                                state.universes.find(
+                                  (u) => u.id !== universe.id,
+                                )?.id ??
+                                universe.id,
+                              universe.id,
+                            ]);
+                            ping.setPage("compare");
+                            ping.setChat(false);
+                          }}
+                        >
+                          <Layers size={15} /> Compare with original
+                        </button>
+                        <button
+                          className="text-button"
+                          onClick={() => ping.openChat("reality")}
+                        >
+                          <RefreshCw size={13} /> Update reality
+                        </button>
+                        <button
+                          className="text-button archive-button"
+                          onClick={archiveUniverse}
+                        >
+                          <Archive size={13} />
+                          {universe.archived
+                            ? "Restore timeline"
+                            : "Archive timeline"}
+                        </button>
+                      </div>
+                    </details>
                   </div>
                 </aside>
               </div>
@@ -571,9 +708,12 @@ export default function App() {
                   <h1>My Financial Baseline</h1>
                   <p>Your real finances. Every timeline starts here.</p>
                 </div>
-                <span className="reality-badge">
-                  <i /> Main Reality
-                </span>
+                <button
+                  className="primary-button"
+                  onClick={() => ping.openChat("reality")}
+                >
+                  <RefreshCw size={16} /> Update reality
+                </button>
               </div>
               <div className="baseline-overview">
                 <span>
@@ -582,15 +722,6 @@ export default function App() {
                 <span>
                   Monthly cash flow{" "}
                   <b className="positive">+{money(baseline[1].netCashFlow)}</b>
-                </span>
-                <span>
-                  Last updated{" "}
-                  <b className="updated-date">
-                    {new Date(profile.updatedAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                    })}
-                  </b>
                 </span>
               </div>
               <div className="baseline-grid">
@@ -643,52 +774,41 @@ export default function App() {
                   ]}
                 />
               </div>
-              <div className="baseline-secondary">
-                <FinancialColumn
-                  title="Outstanding Debt"
-                  subtitle="The other side of the balance"
-                  totalLabel="Total debt"
-                  total={baseline[0].debt}
-                  rows={profile.debts.map((d) => [
-                    d.name,
-                    money(d.balance),
-                    `${(d.apr * 100).toFixed(1)}% APR · ${money(d.payment)}/mo`,
-                  ])}
-                />
-                <FinancialColumn
-                  title="Investments"
-                  subtitle="Working toward your future"
-                  totalLabel="Invested today"
-                  total={profile.investments}
-                  rows={[
-                    ["Investment portfolio", money(profile.investments)],
-                    [
-                      "Monthly contribution",
-                      `${money(profile.contribution)}/mo`,
-                    ],
-                    [
-                      "Annual return assumption",
-                      `${(profile.investmentReturn * 100).toFixed(0)}% est.`,
-                    ],
-                  ]}
-                />
-                <div className="baseline-note">
-                  <div className="note-icon">
-                    <Parrot size={43} />
-                  </div>
-                  <h3>Life changes. Your possibilities follow.</h3>
-                  <p>
-                    A new job, a bonus, a debt paid off. Update your reality and
-                    Ping will recalculate every timeline.
-                  </p>
-                  <button
-                    className="primary-button"
-                    onClick={() => ping.openChat("reality")}
-                  >
-                    <RefreshCw size={14} /> Update reality
-                  </button>
+              <details className="baseline-more">
+                <summary>
+                  Debt & investments <ChevronDown size={17} />
+                </summary>
+                <div className="baseline-secondary">
+                  <FinancialColumn
+                    title="Outstanding Debt"
+                    subtitle="The other side of the balance"
+                    totalLabel="Total debt"
+                    total={baseline[0].debt}
+                    rows={profile.debts.map((d) => [
+                      d.name,
+                      money(d.balance),
+                      `${(d.apr * 100).toFixed(1)}% APR · ${money(d.payment)}/mo`,
+                    ])}
+                  />
+                  <FinancialColumn
+                    title="Investments"
+                    subtitle="Working toward your future"
+                    totalLabel="Invested today"
+                    total={profile.investments}
+                    rows={[
+                      ["Investment portfolio", money(profile.investments)],
+                      [
+                        "Monthly contribution",
+                        `${money(profile.contribution)}/mo`,
+                      ],
+                      [
+                        "Annual return assumption",
+                        `${(profile.investmentReturn * 100).toFixed(0)}% est.`,
+                      ],
+                    ]}
+                  />
                 </div>
-              </div>
+              </details>
               <div className="baseline-actions">
                 <span>
                   <Check size={14} /> Predefined demo profile · no account
@@ -932,12 +1052,6 @@ export default function App() {
               </section>
             </>
           )}
-          <footer className="workspace-footer">
-            <span>Ping · Explore the many financial lives you can live.</span>
-            <span>
-              Hypothetical projections. Explicit assumptions. Your decisions.
-            </span>
-          </footer>
         </main>
         <FloatingComposer ping={ping} />
       </div>
@@ -950,6 +1064,7 @@ export default function App() {
           }}
         >
           <section
+            ref={modalRef}
             className="help-modal"
             role="dialog"
             aria-modal="true"
@@ -988,7 +1103,7 @@ export default function App() {
                   <button
                     className="primary-button"
                     onClick={() => {
-                      const next = seed();
+                      const next = upgradeWorkspace(seed());
                       ping.setState(next);
                       ping.setCompareIds(
                         next.universes.slice(0, 2).map((u) => u.id),
@@ -1053,52 +1168,158 @@ export default function App() {
   );
 }
 
+function BranchPicker({
+  universes,
+  selected,
+  onChange,
+}: {
+  universes: Universe[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const dismiss = (event: PointerEvent) => {
+      if (event.target instanceof Node && !ref.current?.contains(event.target))
+        ref.current?.removeAttribute("open");
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && ref.current?.open) {
+        ref.current.open = false;
+        ref.current.querySelector("summary")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", dismiss);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", escape);
+    };
+  }, []);
+  return (
+    <details className="branch-picker" ref={ref}>
+      <summary>
+        <ListTree size={16} /> Branches (
+        {universes.filter((u) => selected.includes(u.id)).length}){" "}
+        <ChevronDown size={15} />
+      </summary>
+      <div
+        className="branch-options"
+        role="group"
+        aria-label="Visible branches"
+      >
+        <div className="branch-picker-actions">
+          <button onClick={() => onChange(universes.map((u) => u.id))}>
+            Show all
+          </button>
+          <button onClick={() => onChange([])}>Hide all</button>
+        </div>
+        {universes.map((universe) => (
+          <label key={universe.id}>
+            <input
+              type="checkbox"
+              aria-label={universe.name}
+              checked={selected.includes(universe.id)}
+              onChange={(event) =>
+                onChange(
+                  event.target.checked
+                    ? [...selected, universe.id]
+                    : selected.filter((id) => id !== universe.id),
+                )
+              }
+            />
+            <span>
+              {universe.name}
+              {universe.parentId && (
+                <small>
+                  From{" "}
+                  {universes.find((parent) => parent.id === universe.parentId)
+                    ?.name ?? "another timeline"}
+                </small>
+              )}
+            </span>
+          </label>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function FloatingComposer({ ping }: { ping: PingController }) {
   const { chat, universe, mode } = ping;
+  const inputRef = useRef<HTMLInputElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (chat) inputRef.current?.focus({ preventScroll: true });
+    else if (wasOpen.current) toggleRef.current?.focus({ preventScroll: true });
+    wasOpen.current = chat;
+  }, [chat]);
+  useEffect(() => {
+    const shortcut = (event: KeyboardEvent) => {
+      if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        ping.setChat((value) => !value);
+      }
+    };
+    window.addEventListener("keydown", shortcut);
+    return () => window.removeEventListener("keydown", shortcut);
+  }, [ping.setChat]);
+  const suggestions =
+    mode === "reality"
+      ? ["I got a new job paying $90,000.", "I received a $5,000 bonus."]
+      : universe && mode !== "create"
+        ? [
+            "What if I got a $90,000 job two months after moving?",
+            "What if rent was $2,400?",
+          ]
+        : ["Can I move to New York?", "What if I got a job paying $90,000?"];
   return (
     <section
-      className={`floating-composer ${chat ? "expanded" : ""}`}
+      className={`floating-composer ${chat ? "expanded" : ""} ${ping.busy ? "is-thinking" : ""}`}
       role={chat ? "dialog" : "region"}
       aria-modal={chat ? false : undefined}
       aria-label={chat ? "A chat with Ping" : "Ask Ping"}
     >
       <div className="composer-header">
         <span className="composer-identity">
-          <Parrot size={25} />
-          <b>Ping AI</b>
-          <span className="ai-status">
+          <Parrot size={32} />
+          <label htmlFor="ping-input">Ask Ping</label>
+          <span className="ai-status" title={ping.ai}>
             <i />
-            {ping.ai}
+            {ping.ai.includes("Demo") ? "Demo" : "Live"}
           </span>
         </span>
-        <div>
-          <button
-            className="icon-button"
-            onClick={() => ping.setChat(!chat)}
-            aria-label={chat ? "Minimize chat" : "Expand chat"}
-          >
-            {chat ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-          </button>
-          {chat && (
-            <button
-              className="icon-button"
-              aria-label="Close chat"
-              onClick={() => ping.setChat(false)}
-            >
-              <X size={15} />
-            </button>
+        <button
+          ref={toggleRef}
+          className="icon-button composer-toggle"
+          onClick={() => ping.setChat(!chat)}
+          aria-label={chat ? "Close chat" : "Expand chat"}
+          aria-expanded={chat}
+          aria-controls="ping-conversation"
+          title={chat ? "Close chat (Esc)" : "Open Ping (Ctrl+K)"}
+        >
+          {chat ? (
+            <Minimize2 size={18} />
+          ) : (
+            <>
+              <kbd>Ctrl K</kbd>
+              <Maximize2 size={16} />
+            </>
           )}
-        </div>
+        </button>
       </div>
       {chat && (
-        <>
+        <div className="composer-conversation" id="ping-conversation">
           <div className="chat-mode">
-            <label htmlFor="chat-mode">You’re exploring</label>
+            <label htmlFor="chat-mode">Exploring</label>
             <select
               id="chat-mode"
+              aria-label="You’re exploring"
               value={mode}
               disabled={ping.busy}
-              onChange={(e) => ping.setMode(e.target.value as Mode)}
+              onChange={(event) => ping.setMode(event.target.value as Mode)}
             >
               <option value="create">A new universe</option>
               {universe && (
@@ -1112,70 +1333,73 @@ function FloatingComposer({ ping }: { ping: PingController }) {
           </div>
           {universe && mode !== "create" && mode !== "reality" && (
             <div className="chat-context">
-              <GitBranch size={13} />
-              {universe.name}
-              <span>
+              <GitBranch size={15} />
+              <span>{universe.name}</span>
+              <small>
                 {mode === "branch" ? "Original preserved" : "Editing this path"}
-              </span>
+              </small>
             </div>
           )}
-          <div className="chat-messages">
+          <div
+            className="chat-messages"
+            role="log"
+            aria-label="Conversation with Ping"
+            aria-relevant="additions"
+            aria-live="polite"
+          >
             {!ping.thread.length && (
               <div className="welcome-message">
                 <h3>
                   {mode === "reality"
-                    ? "What changed in your real life?"
-                    : "Where could your next chapter begin?"}
+                    ? "What’s new in your life?"
+                    : "A little what-if. A new possibility."}
                 </h3>
                 <p>
                   {mode === "reality"
-                    ? "A real update reaches every possibility."
-                    : "Start with a what-if. We’ll explore where it leads."}
+                    ? "Your update will reach every timeline."
+                    : "Tell me what you’re imagining, or start here."}
                 </p>
                 <div className="chat-suggestions">
-                  {(mode === "reality"
-                    ? [
-                        "I got a new job paying $90,000.",
-                        "I received a $5,000 bonus.",
-                        "I paid off my credit card.",
-                      ]
-                    : universe && mode !== "create"
-                      ? [
-                          "What if I got a $90,000 job two months after moving?",
-                          "What if rent was $2,400?",
-                        ]
-                      : [
-                          "Can I move to New York?",
-                          "What if I bought a $25,000 car?",
-                          "What if I got a job paying $90,000?",
-                        ]
-                  ).map((text) => (
-                    <button key={text} onClick={() => ping.setInput(text)}>
+                  {suggestions.map((text) => (
+                    <button
+                      key={text}
+                      onClick={() => {
+                        ping.setInput(text);
+                        inputRef.current?.focus();
+                      }}
+                    >
                       {text}
-                      <ArrowRight size={12} />
+                      <ArrowRight size={16} />
                     </button>
                   ))}
                 </div>
               </div>
             )}
-            {ping.thread.map((m) => (
-              <div key={m.id} className={`chat-message ${m.role}`}>
-                {m.role === "assistant" && <Parrot size={24} />}
-                <div>{m.text}</div>
+            {ping.thread.map((message) => (
+              <div key={message.id} className={`chat-message ${message.role}`}>
+                {message.role === "assistant" && <Parrot size={28} />}
+                <div>{message.text}</div>
               </div>
             ))}
             {ping.busy && (
-              <div className="chat-thinking">
-                <Loader2 size={14} className="spin" /> Exploring this
-                possibility…
+              <div className="chat-thinking" role="status">
+                <span className="thinking-dots" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <span>Thinking through this possibility…</span>
               </div>
             )}
             {!!ping.toolSteps.length && !ping.busy && (
               <details className="tool-activity">
-                <summary>Ping used {ping.toolSteps.length} tools</summary>
+                <summary>
+                  Ping used {ping.toolSteps.length} tools{" "}
+                  <ChevronDown size={15} />
+                </summary>
                 <ol>
-                  {ping.toolSteps.map((step, i) => (
-                    <li key={i}>
+                  {ping.toolSteps.map((step, index) => (
+                    <li key={index}>
                       <span>{step.tool.replaceAll("_", " ")}</span>
                       <b>
                         {step.status === "ok"
@@ -1187,7 +1411,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
                 </ol>
               </details>
             )}
-            {ping.thread.length > 0 && !ping.busy && (
+            {ping.thread.length > 0 && !ping.busy && !ping.requestError && (
               <div className="chat-result-actions">
                 {mode === "reality" ? (
                   <button
@@ -1197,7 +1421,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
                       ping.navigate("updates");
                     }}
                   >
-                    See what changed <ArrowRight size={13} />
+                    See what changed <ArrowRight size={16} />
                   </button>
                 ) : (
                   universe && (
@@ -1209,7 +1433,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
                           ping.openUniverse(universe);
                         }}
                       >
-                        Explore this universe <ArrowRight size={13} />
+                        Explore this universe <ArrowRight size={16} />
                       </button>
                       {universe.parentId && (
                         <button
@@ -1219,7 +1443,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
                             ping.setPage("compare");
                           }}
                         >
-                          Compare with original <GitBranch size={13} />
+                          Compare with original <GitBranch size={16} />
                         </button>
                       )}
                     </>
@@ -1229,28 +1453,34 @@ function FloatingComposer({ ping }: { ping: PingController }) {
             )}
             <div ref={ping.bottomRef} />
           </div>
-        </>
+        </div>
+      )}
+      {ping.requestError && (
+        <div className="composer-error" role="alert" id="ping-error">
+          <span>{ping.requestError}</span>
+          <small>Your message is kept below. Edit it or send again.</small>
+        </div>
       )}
       <form
         className="composer-form"
-        onSubmit={(e) => {
-          e.preventDefault();
+        onSubmit={(event) => {
+          event.preventDefault();
           ping.setChat(true);
           void ping.send();
         }}
       >
-        <label className="sr-only" htmlFor="ping-input">
-          Your message to Ping
-        </label>
         <input
+          ref={inputRef}
           id="ping-input"
+          aria-label="Your message to Ping"
+          aria-describedby={ping.requestError ? "ping-error" : undefined}
           value={ping.input}
-          onChange={(e) => ping.setInput(e.target.value)}
+          onChange={(event) => ping.setInput(event.target.value)}
           placeholder={
             mode === "reality"
-              ? "Tell Ping what changed…"
+              ? "Tell me what changed…"
               : universe && mode !== "create"
-                ? "What if something changed in this timeline?"
+                ? "What would you change about this path?"
                 : "What if I moved to New York?"
           }
           disabled={ping.busy}
@@ -1261,24 +1491,17 @@ function FloatingComposer({ ping }: { ping: PingController }) {
           disabled={ping.busy || !ping.input.trim()}
         >
           {ping.busy ? (
-            <Loader2 size={16} className="spin" />
+            <Loader2 size={18} className="spin" />
           ) : (
-            <Send size={16} />
+            <ArrowRight size={19} />
           )}
         </button>
       </form>
-      <div className="composer-caption">
-        {mode === "reality" ? (
-          "Updating actual reality · all timelines will recalculate"
-        ) : universe && mode !== "create" ? (
-          <>
-            <GitBranch size={10} />
-            {mode === "branch" ? "Branching" : "Modifying"} {universe.name}
-          </>
-        ) : (
-          "A little “what if” can open a whole new world."
-        )}
-      </div>
+      {mode === "reality" && (
+        <div className="composer-caption">
+          <RefreshCw size={13} /> Updating your real baseline
+        </div>
+      )}
     </section>
   );
 }
@@ -1327,9 +1550,6 @@ function MetricControls({
           className={metric === key ? "selected" : ""}
           onClick={() => onChange(key)}
         >
-          <span className="metric-switch">
-            <i />
-          </span>
           {label}
         </button>
       ))}
@@ -1347,6 +1567,7 @@ function MonthSlider({ ping }: { ping: PingController }) {
         min="0"
         max="36"
         value={ping.month}
+        aria-valuetext={ping.baseline[ping.month].date}
         onChange={(e) => ping.setMonth(Number(e.target.value))}
       />
       <span>36 months</span>
@@ -1357,7 +1578,9 @@ function SummaryRow({ label, amount }: { label: string; amount: number }) {
   return (
     <div>
       <span>{label}</span>
-      <b>{money(amount)}</b>
+      <b>
+        <AnimatedValue value={amount} />
+      </b>
     </div>
   );
 }
@@ -1380,22 +1603,28 @@ function FinancialColumn({
         <h2>{title}</h2>
         <p>{subtitle}</p>
       </header>
-      <div className="financial-rows">
-        {rows.map(([label, value, note]) => (
-          <div className="financial-row" key={label}>
-            <div>
-              <span>{label}</span>
-              {note && <small>{note}</small>}
-            </div>
-            <i />
-            <b>{value}</b>
-          </div>
-        ))}
-      </div>
       <div className="financial-total">
+        <b>
+          <AnimatedValue value={total} />
+        </b>
         <span>{totalLabel}</span>
-        <b>{money(total)}</b>
       </div>
+      <details className="financial-detail">
+        <summary>
+          View breakdown <ChevronDown size={15} />
+        </summary>
+        <div className="financial-rows">
+          {rows.map(([label, value, note]) => (
+            <div className="financial-row" key={label}>
+              <div>
+                <span>{label}</span>
+                {note && <small>{note}</small>}
+              </div>
+              <b>{value}</b>
+            </div>
+          ))}
+        </div>
+      </details>
     </section>
   );
 }

@@ -90,6 +90,7 @@ export interface RealityChange {
 }
 export interface AppState {
   version: 1;
+  examplesVersion?: number;
   profile: Profile;
   universes: Universe[];
   notices: Notice[];

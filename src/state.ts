@@ -2,6 +2,7 @@ import type { AppState, FinancialEvent, Profile, Universe } from "./types";
 import type { Interpretation } from "./interpreter";
 import { assess, money, simulate } from "./engine";
 import { id, seed } from "./seed";
+import { upgradeWorkspace } from "./workspace-upgrade";
 export const STORAGE_KEY = "ping.multiverse.v1";
 export function readState(): AppState {
   try {
@@ -11,11 +12,11 @@ export function readState(): AppState {
       Array.isArray(data.universes) &&
       data.profile?.annualSalary
     )
-      return data;
+      return upgradeWorkspace(data);
   } catch {
     /* Restore seeded profile if storage is corrupt. */
   }
-  return seed();
+  return upgradeWorkspace(seed());
 }
 export function mergeEvents(
   existing: FinancialEvent[],

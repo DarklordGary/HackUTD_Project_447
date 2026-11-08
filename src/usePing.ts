@@ -12,6 +12,7 @@ import { money, simulate } from "./engine";
 import { colors, id, makeUniverse } from "./seed";
 import { interpret } from "./interpreter";
 import { connectPersistence } from "./sync";
+import { upgradeWorkspace } from "./workspace-upgrade";
 type Page = "timelines" | "baseline" | "settings" | "compare" | "updates";
 export function usePing() {
   const [state, setState] = useState<AppState>(readState);
@@ -23,6 +24,7 @@ export function usePing() {
   const [mode, setMode] = useState<Mode>("create");
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [requestError, setRequestError] = useState("");
   const [thread, setThread] = useState<Message[]>([]);
   const [toolSteps, setToolSteps] = useState<
     { tool: string; status: "ok" | "error" }[]
@@ -38,6 +40,7 @@ export function usePing() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const syncRef = useRef<ReturnType<typeof connectPersistence> | null>(null);
   const latestState = useRef(state);
+  useEffect(() => setState(upgradeWorkspace), []);
   useEffect(() => {
     latestState.current = state;
   }, [state]);
@@ -57,7 +60,7 @@ export function usePing() {
       .then((d) => setAi(d.ai))
       .catch(() => {});
     syncRef.current = connectPersistence(
-      (remote) => setState(remote),
+      (remote) => setState(upgradeWorkspace(remote)),
       setStorage,
     );
     return () => syncRef.current?.close();
@@ -71,7 +74,13 @@ export function usePing() {
     }
   }, [state]);
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const reduced = window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    bottomRef.current?.scrollIntoView({
+      behavior: reduced ? "auto" : "smooth",
+      block: "nearest",
+    });
   }, [thread, busy, chat]);
   useEffect(() => {
     if (!toast) return;
@@ -94,6 +103,7 @@ export function usePing() {
     setSelected(null);
   }
   function openChat(next: Mode = "create", target?: Universe) {
+    setRequestError("");
     setToolSteps([]);
     setMode(next);
     setThread(target?.messages ?? []);
@@ -109,10 +119,16 @@ export function usePing() {
   async function send(text = input) {
     const prompt = text.trim();
     if (!prompt || busy) return;
+    setRequestError("");
     setInput("");
     setBusy(true);
     const userMessage: Message = { id: id(), role: "user", text: prompt };
-    const conversation = [...thread, userMessage];
+    const previous = thread.at(-1);
+    const history =
+      previous?.role === "user" && previous.text === prompt
+        ? thread.slice(0, -1)
+        : thread;
+    const conversation = [...history, userMessage];
     setThread(conversation);
     try {
       const { data, source, tools } = await interpret(
@@ -121,7 +137,7 @@ export function usePing() {
         universe,
         profile,
         state.universes,
-        thread,
+        history,
       );
       if (
         latestState.current.profile !== state.profile ||
@@ -228,17 +244,13 @@ export function usePing() {
         );
       }
     } catch (error) {
-      setThread([
-        ...conversation,
-        {
-          id: id(),
-          role: "assistant",
-          text:
-            error instanceof Error
-              ? error.message
-              : "Something went wrong. Please try again.",
-        },
-      ]);
+      setThread(conversation);
+      setRequestError(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong. Please try again.",
+      );
+      setInput(prompt);
     } finally {
       setBusy(false);
     }
@@ -276,6 +288,7 @@ export function usePing() {
     input,
     setInput,
     busy,
+    requestError,
     thread,
     setThread,
     toolSteps,

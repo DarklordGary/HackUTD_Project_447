@@ -4,6 +4,7 @@ import {
   ArrowUpRight,
   Building2,
   Car,
+  ChevronDown,
   GraduationCap,
   Home,
   Sparkles,
@@ -113,6 +114,13 @@ interface Series {
   rows: Projection[];
   dashed?: boolean;
 }
+export function AnimatedValue({ value }: { value: number }) {
+  return (
+    <span key={value} className="value-change">
+      {money(value)}
+    </span>
+  );
+}
 export function ProjectionChart({
   series,
   metric = "netWorth",
@@ -160,7 +168,7 @@ export function ProjectionChart({
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="projection-chart"
-        role="img"
+        role="group"
         aria-label={`${metric} projections for ${series.map((s) => s.name).join(", ")}. Use the month slider for exact values.`}
         onMouseMove={(e) => {
           const box = e.currentTarget.getBoundingClientRect();
@@ -195,7 +203,7 @@ export function ProjectionChart({
                 x={left - 14}
                 y={y(tick) + 4}
                 textAnchor="end"
-                fill="#92998f"
+                fill="var(--muted)"
                 fontSize="11"
               >
                 {money(tick, true)}
@@ -255,6 +263,13 @@ export function ProjectionChart({
                 <title>
                   {event.label} · {money(event.amount)}
                 </title>
+                <circle
+                  cx={x(event.month)}
+                  cy={pointY}
+                  r="28"
+                  fill="transparent"
+                  className="chart-hit-area"
+                />
                 <line
                   x1={x(event.month)}
                   x2={x(event.month)}
@@ -309,7 +324,7 @@ export function ProjectionChart({
             x={x(m)}
             y={height - 8}
             textAnchor="middle"
-            fill="#92998f"
+            fill="var(--muted)"
             fontSize="11"
           >
             {m === 0
@@ -358,28 +373,46 @@ export function Breakdown({ row }: { row: Projection }) {
           ) : (
             <ArrowUpRight size={13} />
           )}
-          {money(row.netCashFlow)} cash flow
+          <AnimatedValue value={row.netCashFlow} /> cash flow
         </span>
       </div>
       <div className="breakdown-grid">
         {[
           ["Income", row.income],
           ["Living expenses", row.expenses],
-          ["Debt payments", row.debtPayments],
-          ["Invested this month", row.investmentContribution],
-          ["Investment growth", row.investmentGrowth],
-          ["Checking", row.checking],
           ["Savings", row.savings],
           ["Outstanding debt", row.debt],
-          ["Investments", row.investments],
-          ["Net worth", row.netWorth],
         ].map(([label, value]) => (
           <div key={label}>
             <span>{label}</span>
-            <b>{money(Number(value))}</b>
+            <b>
+              <AnimatedValue value={Number(value)} />
+            </b>
           </div>
         ))}
       </div>
+      <details className="monthly-details">
+        <summary>
+          Full monthly breakdown <ChevronDown size={16} />
+        </summary>
+        <div className="breakdown-grid">
+          {[
+            ["Debt payments", row.debtPayments],
+            ["Invested this month", row.investmentContribution],
+            ["Investment growth", row.investmentGrowth],
+            ["Checking", row.checking],
+            ["Investments", row.investments],
+            ["Net worth", row.netWorth],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <span>{label}</span>
+              <b>
+                <AnimatedValue value={Number(value)} />
+              </b>
+            </div>
+          ))}
+        </div>
+      </details>
     </div>
   );
 }
