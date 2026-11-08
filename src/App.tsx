@@ -241,6 +241,19 @@ export default function App() {
             <Settings2 size={19} />
             <span>Settings</span>
           </button>
+          <button
+            className={`nav-item ${page === "updates" ? "active" : ""}`}
+            aria-label="Updates"
+            aria-current={page === "updates" ? "page" : undefined}
+            onClick={() => {
+              ping.navigate("updates");
+              ping.setChat(false);
+            }}
+          >
+            <Bell size={19} />
+            <span>Updates</span>
+            {ping.unread > 0 && <small>{ping.unread}</small>}
+          </button>
         </nav>
         <div className="sidebar-bottom">
           <div className="workspace-health">
@@ -262,42 +275,6 @@ export default function App() {
         </div>
       </aside>
       <div className="main-shell">
-        <header className="topbar">
-          <button
-            className="mobile-brand"
-            aria-label="Ping home"
-            onClick={showTimelines}
-          >
-            <Parrot size={32} />
-            <span>ping.</span>
-          </button>
-          <div className="breadcrumb">
-            <span>Personal workspace</span>
-            <span className="breadcrumb-slash">/</span>
-            <b>{title}</b>
-            {universe && page === "timelines" && (
-              <>
-                <span className="breadcrumb-slash">/</span>
-                <span>{universe.name}</span>
-              </>
-            )}
-          </div>
-          <button
-            className={`notification-button ${ping.unread ? "has-updates" : ""}`}
-            onClick={() => {
-              ping.navigate("updates");
-              ping.setChat(false);
-            }}
-          >
-            <Bell size={15} />
-            <span>
-              {ping.unread
-                ? `${ping.unread} new ${ping.unread === 1 ? "update" : "updates"}`
-                : "Updates"}
-            </span>
-            {ping.unread > 0 && <i />}
-          </button>
-        </header>
         <main
           key={route}
           ref={mainRef}
@@ -700,21 +677,6 @@ export default function App() {
           )}
           {page === "baseline" && (
             <>
-              <div className="page-heading">
-                <div>
-                  <span className="eyebrow">
-                    THE STARTING POINT FOR EVERY POSSIBILITY
-                  </span>
-                  <h1>My Financial Baseline</h1>
-                  <p>Your real finances. Every timeline starts here.</p>
-                </div>
-                <button
-                  className="primary-button"
-                  onClick={() => ping.openChat("reality")}
-                >
-                  <RefreshCw size={16} /> Update reality
-                </button>
-              </div>
               <div className="baseline-overview">
                 <span>
                   Current net worth <b>{money(baseline[0].netWorth)}</b>
