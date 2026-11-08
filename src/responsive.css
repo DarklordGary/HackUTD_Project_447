@@ -859,3 +859,89 @@ body,
     animation: none;
   }
 }
+
+/* Ping stays in the workspace flow; only explicit history opens a transcript. */
+.ping-dock {
+  flex: 0 0 auto;
+  width: min(780px, calc(100% - 40px));
+  margin: 8px auto 18px;
+  min-width: 0;
+}
+.ping-dock-heading, .ping-dock-heading > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ping-dock-heading {
+  justify-content: space-between;
+  color: var(--primary);
+  padding-inline: 8px;
+  font-size: 13px;
+}
+.ping-dock .text-button { min-height: 44px; font-size: 12px; }
+.ping-input-surface {
+  background: #fffefb;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+}
+.ping-input-surface:focus-within { border-color: #87a977; box-shadow: 0 0 0 3px #87a97718; }
+.ping-dock .composer-form, .ping-dock .composer-form:focus-within {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 8px 10px 8px 18px;
+}
+.ping-response { padding: 12px 18px 0; }
+.ping-response-log {
+  max-height: min(140px, 22dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  overflow-wrap: anywhere;
+}
+.ping-response.show-history .ping-response-log { max-height: min(280px, 35dvh); }
+.ping-message { display: flex; gap: 10px; font-size: 13px; line-height: 1.65; margin-bottom: 10px; }
+.ping-message-author { flex: 0 0 28px; color: var(--primary); font-weight: 600; }
+.ping-message.user { color: var(--muted); }
+.ping-message > div { white-space: pre-wrap; min-width: 0; }
+.ping-dock .chat-thinking { padding-block: 6px 12px; }
+.ping-dock .chat-result-actions { margin: 0; padding: 0; gap: 16px; }
+.ping-dock .tool-activity { margin: 0; font-size: 12px; }
+.ping-reply-bubble {
+  width: fit-content;
+  max-width: calc(100% - 20px);
+  margin: 0 0 10px 8px;
+  padding: 10px 14px;
+  border-radius: 14px 14px 14px 4px;
+  background: #edf3e8;
+  border: 1px solid #d6e1cf;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.ping-reply-bubble > span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.ping-reply-bubble .text-button { min-height: 32px; padding: 0; }
+.universe-lane.is-new .universe-line {
+  stroke-dasharray: 1;
+  animation: draw-new-timeline 1300ms ease-out both;
+}
+@keyframes draw-new-timeline { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@media (max-width: 900px) {
+  .ping-dock { width: calc(100% - 24px); margin: 0 auto 8px; }
+  .ping-response { padding: 10px 12px 0; }
+  .ping-message { font-size: 13px; }
+  .ping-dock .composer-form { padding: 7px 8px 7px 12px; }
+  .ping-reply-bubble { margin-left: 0; }
+  :root[data-keyboard-open="true"] .ping-response-log { max-height: min(100px, 20dvh); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .universe-lane.is-new .universe-line { animation: none; stroke-dashoffset: 0; }
+}

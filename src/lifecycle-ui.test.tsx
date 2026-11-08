@@ -26,7 +26,7 @@ it("drives five composer turns, restores context, realizes one plan and starts a
         { kind: "monthly-expense", label: "Local expenses", amount: 350, month: 2, estimated: true, groupId: "nyc", destination: "New York" },
       ] };
     } else if (turn === 1) {
-      session.execute("select_action", { action: "create_child_timeline", timelineId: body.activeGoalId });
+      session.execute("select_action", { action: "create_alternative_from_reality", timelineId: body.activeGoalId });
       args = { operation: "branch", timelineId: body.activeGoalId, name: "Delayed NYC", description: "Raise and delay", assumptions: [], reschedule: { groupId: "nyc", delayMonths: 3 }, events: [
         { kind: "salary", label: "Raise prerequisite", amount: 0, month: 1, estimated: false, salary: { mode: "delta", value: 20000, baseline: 72000, purpose: "prerequisite" } },
       ] };
@@ -55,7 +55,8 @@ it("drives five composer turns, restores context, realizes one plan and starts a
   const original = structuredClone(state().universes[0]);
   await send("What if I got a raise of $20,000 and waited 3 months before moving?", 2);
   expect(state().universes[0]).toEqual(original);
-  expect(state().universes[1].parentId).toBe(original.id);
+  expect(state().universes[1].parentId).toBeUndefined();
+  expect(state().universes[1].revisionOfId).toBe(original.id);
   expect(state().universes[1].events.filter(e => e.groupId === "nyc").map(e => e.month)).toEqual([5,5,5]);
   const childId = state().universes[1].id;
   view.unmount(); view = render(<App />);

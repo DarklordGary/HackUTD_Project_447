@@ -42,11 +42,11 @@ for (const [i,prompt] of prompts.entries()) {
       const base = data.operation === "create" ? undefined : state.universes.find(u => u.id === data.targetUniverseId);
       const next = makeUniverse(data.name, data.description, mergeEvents(base?.events ?? [], data.events, data.removeEventIds, data.explicitOperations));
       next.assumptions = mergeAssumptions(base?.assumptions ?? [], data);
-      if (base) next.parentId = base.id;
+      if (base) { next.revisionOfId = base.id; if (data.branchOrigin !== "current") next.parentId = base.id; }
       state.universes.push(next); selectedUniverseId = next.id; state.activeGoalId = next.id;
     }
     if (i === 0) { assert.equal(assess(state.profile, state.universes[0]).viable, false); assert.equal(state.universes[0].events.find(e => e.kind === "rent")?.month, 2); }
-    if (i === 1) { assert.equal(state.universes[1].parentId, state.universes[0].id); assert.equal(state.universes[1].events.filter(e => e.kind === "rent").length, 1); assert.equal(state.universes[1].events.find(e => e.kind === "rent")?.month, 5); }
+    if (i === 1) { assert.equal(state.universes[1].parentId, undefined); assert.equal(state.universes[1].revisionOfId, state.universes[0].id); assert.equal(state.universes[1].events.filter(e => e.kind === "rent").length, 1); assert.equal(state.universes[1].events.find(e => e.kind === "rent")?.month, 5); }
     if (i === 2) { assert.equal(state.profile.annualSalary, 112000); assert.equal(state.universes[1].events.find(e => e.salary)?.salary?.status, "fulfilled"); }
     if (i === 3) { assert.equal(state.profile.location, "New York"); assert.equal(state.profile.annualSalary, 112000); assert.equal(state.universes.filter(u => u.archiveReason === "realized").length, 1); assert.equal(state.universes[1].archiveReason, "realized"); assert.equal(state.universes[0].archived, undefined); }
     if (i === 4) { assert.equal(state.universes[2].parentId, undefined); assert.equal(state.universes[2].events.some(e => e.kind === "financed-purchase"), true); assert(simulate(state.profile, state.universes[2].events)[36].debt > 190000); }

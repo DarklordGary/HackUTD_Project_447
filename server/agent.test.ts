@@ -50,6 +50,30 @@ function completion(name: string, args: unknown, id = "call-1") {
   };
 }
 describe("financial tool dispatcher", () => {
+  it("preserves the model's explicit reality-origin revision choice through preview and finish", () => {
+    const ctx = context();
+    const original = structuredClone(ctx.universes[0]);
+    ctx.universes[0].events = ctx.universes[0].events.map(e => ({ ...e, groupId: "move" }));
+    const session = createToolSession(ctx);
+    const selected = session.execute("select_action", { action: "create_alternative_from_reality", scenarioKind: "move", timelineId: original.id }).output as any;
+    expect(selected.branchOrigin).toBe("current");
+    const preview = session.execute("preview_plan_revision", { timelineId: original.id, groupId: "move", delayMonths: 4, salaryMode: "delta", salaryValue: 15000, salaryMonth: 1, name: "Seattle alternative" }).output as any;
+    expect(preview.branchOrigin).toBe("current");
+    const command = session.execute("apply_preview", { previewId: preview.previewId, explanation: "Previewed." }).final!;
+    expect(command.branchOrigin).toBe("current");
+    expect(command.targetUniverseId).toBe(original.id);
+    expect(command.events.filter(e => e.groupId === "move").map(e => e.month)).toEqual([9,9,9]);
+    expect(ctx.universes[0].events.map(e => e.month)).toEqual([5,5,5]);
+  });
+  it("does not silently repair a model-selected child into a reality-origin alternative", () => {
+    const ctx = context();
+    const session = createToolSession(ctx);
+    session.execute("select_action", { action: "create_child_timeline", scenarioKind: "general", timelineId: ctx.selectedUniverseId });
+    const preview = session.execute("simulate_scenario", scenario).output as any;
+    const command = session.execute("apply_preview", { previewId: preview.previewId, explanation: "A continuation." }).final!;
+    expect(command.branchOrigin).toBeUndefined();
+    expect(command.targetUniverseId).toBe(ctx.selectedUniverseId);
+  });
   it("starts a standalone China alternative from baseline even with New York selected", () => {
     const ctx = context();
     ctx.prompt = "Can I move to China?";

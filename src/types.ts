@@ -81,6 +81,7 @@ export interface Universe {
   description: string;
   createdAt: string;
   parentId?: string;
+  revisionOfId?: string;
   color: string;
   icon: "city" | "home" | "sparkles" | "car" | "graduation";
   events: FinancialEvent[];

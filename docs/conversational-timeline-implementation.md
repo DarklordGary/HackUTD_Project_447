@@ -49,3 +49,12 @@ Earlier live probes exposed invented baseline IDs, irrelevant optional fields, d
 - A legacy move with no structured group/destination needs its events annotated before realization. Multiple cost lines with one combined actual override, or move costs preceding the selected rent activation, require explicit reconciliation rather than guessing.
 - Historical projections for old manually archived plans are frozen at migration because earlier financial snapshots cannot be reconstructed. Existing user-created plans are preserved; the clean-baseline migration is not repeated.
 - Loan payments below the amortizing minimum are rejected; negative amortization is not modeled.
+
+
+## Model-owned branch origin correction
+
+The model now explicitly distinguishes `create_alternative_from_reality` from `create_child_timeline` in `select_action`. A revision that raises income before postponing the first move uses the former: it edits a copy of the source plan, returns `branchOrigin: "current"`, and is saved with no financial parent. `revisionOfId` retains its relationship to the original goal. A continuation after the original move uses the latter and retains that timeline as its parent.
+
+The automatic renderer-origin adjustment was removed. The renderer does not inspect financial events and relocate a model-chosen child. Existing saved plans are not rewritten. Tools are scoped to the model-selected action: an alternative exposes the revision preview; a continuation exposes scenario additions, rather than the move-rescheduling preview.
+
+`npm run test:branch-intent:live` verifies the actual deployment on the user's exact Seattle follow-up, a paraphrase, and a contrasting job-after-move request. The successful sequence starts with `branch-intent-1794127201497-1`; evidence is in `logs/branch-intent-smoke.json` and the raw turn-correlated log. It checks origin selection, four-month rescheduling, salary semantics, original preservation and retention of the original move for the later-job case. The five-turn live lifecycle also passes with the revised separate-path semantics. This verifies those inputs; it is not a guarantee of every future model interpretation.

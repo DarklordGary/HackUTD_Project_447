@@ -109,6 +109,7 @@ export default function TimelineCanvas({
   onReality,
   onBranch,
   colorUniverses,
+  revealId,
 }: {
   universes: Universe[];
   profile: Profile;
@@ -117,6 +118,7 @@ export default function TimelineCanvas({
   onReality: () => void;
   onBranch?: (universe: Universe) => void;
   colorUniverses?: Universe[];
+  revealId?: string | null;
 }) {
   const lanes = useMemo(() => layoutTimelines(universes), [universes]);
   const colorLanes = useMemo(
@@ -410,7 +412,7 @@ export default function TimelineCanvas({
               return (
                 <g
                   key={u.id}
-                  className={`universe-lane ${u.archived ? "archived" : ""} ${activeId === u.id ? "is-active" : ""}`}
+                  className={`universe-lane ${revealId === u.id ? "is-new" : ""} ${u.archived ? "archived" : ""} ${activeId === u.id ? "is-active" : ""}`}
                   style={{ color }}
                 >
                   <path
@@ -420,6 +422,7 @@ export default function TimelineCanvas({
                   />
                   <path
                     className="universe-line"
+                    pathLength={revealId === u.id ? 1 : undefined}
                     d={line}
                     strokeWidth={7}
                     role="button"

@@ -17,6 +17,7 @@ type Page = "timelines" | "baseline" | "settings" | "compare" | "updates";
 export function usePing() {
   const [state, setState] = useState<AppState>(readState);
   const [page, setPage] = useState<Page>("timelines");
+  const [recentUniverseId, setRecentUniverseId] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [month, setMonth] = useState(12);
   const [chat, setChat] = useState(false);
@@ -98,6 +99,11 @@ export function usePing() {
     window.addEventListener("keydown", key);
     return () => window.removeEventListener("keydown", key);
   }, []);
+  useEffect(() => {
+    if (!recentUniverseId) return;
+    const timer = setTimeout(() => setRecentUniverseId(null), 1600);
+    return () => clearTimeout(timer);
+  }, [recentUniverseId]);
   function navigate(next: Page) {
     setPage(next);
     setSelected(null);
@@ -107,8 +113,7 @@ export function usePing() {
     setToolSteps([]);
     setMode(next);
     setThread(state.conversation ?? target?.messages ?? []);
-    setSelected(target?.id ?? null);
-    if (target) setPage("timelines");
+    if (target) setState(prev => ({ ...prev, activeGoalId: target.id }));
     setChat(true);
   }
   function openUniverse(u: Universe) {
@@ -137,7 +142,7 @@ export function usePing() {
       const { data, source, tools } = await interpret(
         prompt,
         mode,
-        universe,
+        universe ?? state.universes.find(u => u.id === state.activeGoalId && !u.archived),
         profile,
         state.universes,
         history, operationId, state.activeGoalId,
@@ -186,7 +191,7 @@ export function usePing() {
           },
         ]);
         setToast("Reality updated. Every universe recalculated.");
-        setPage("updates");
+        setPage("timelines");
         setMode("reality");
       } else {
         if (!data.events.length && !data.explicitOperations)
@@ -213,7 +218,10 @@ export function usePing() {
                 existing?.icon ?? "sparkles",
                 colors[state.universes.length % colors.length],
               );
-        if (operation === "branch" && existing) next.parentId = existing.id;
+        if (operation === "branch" && existing) {
+          next.revisionOfId = existing.id;
+          if (data.branchOrigin !== "current") next.parentId = existing.id;
+        }
         next.events = mergeEvents(
           existing?.events ?? [],
           data.events,
@@ -239,7 +247,8 @@ export function usePing() {
         }));
         if (existing && operation === "branch")
           setCompareIds([existing.id, next.id]);
-        setSelected(next.id);
+        if (operation !== "modify") setRecentUniverseId(next.id);
+        setSelected(null);
         setPage("timelines");
         setMode("branch");
         setToast(
@@ -284,6 +293,7 @@ export function usePing() {
     page,
     setPage,
     selected,
+    recentUniverseId,
     setSelected,
     month,
     setMonth,

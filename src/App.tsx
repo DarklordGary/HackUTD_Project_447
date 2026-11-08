@@ -315,6 +315,7 @@ export default function App() {
                   colorUniverses={state.universes}
                   profile={profile}
                   horizon={36}
+                  revealId={ping.recentUniverseId}
                   onSelect={selectUniverse}
                   onReality={showBaseline}
                   onBranch={(universe) => ping.openChat("branch", universe)}
@@ -406,8 +407,8 @@ export default function App() {
                     <h2>Branch Summary</h2>
                   </div>
                   <p className="summary-description">
-                    {universe.parentId
-                      ? `Branched from ${state.universes.find((u) => u.id === universe.parentId)?.name ?? "another timeline"}`
+                    {(universe.revisionOfId ?? universe.parentId)
+                      ? `Alternative to ${state.universes.find((u) => u.id === (universe.revisionOfId ?? universe.parentId))?.name ?? "another timeline"}`
                       : "A possibility from your Main Reality"}
                   </p>
                   <div className="summary-numbers">
@@ -543,7 +544,7 @@ export default function App() {
                           className="secondary-button"
                           onClick={() => {
                             ping.setCompareIds([
-                              universe.parentId ??
+                              universe.revisionOfId ?? universe.parentId ??
                                 state.universes.find(
                                   (u) => u.id !== universe.id,
                                 )?.id ??
@@ -898,7 +899,7 @@ export default function App() {
             </>
           )}
         </main>
-        <FloatingComposer ping={ping} />
+        <PingComposer ping={ping} />
       </div>
       {(ping.help || ping.confirmReset) && (
         <div
@@ -1102,8 +1103,14 @@ function BranchPicker({
   );
 }
 
-function FloatingComposer({ ping }: { ping: PingController }) {
-  const { chat, universe, mode } = ping;
+function PingComposer({ ping }: { ping: PingController }) {
+  const { chat, mode } = ping;
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const latestReply = [...ping.thread].reverse().find(m => m.role === "assistant");
+  const currentReply = ping.thread.at(-1)?.role === "assistant" ? ping.thread.at(-1) : undefined;
+  const latestRequest = [...ping.thread].reverse().find(m => m.role === "user");
+  const drafting = !!ping.input.trim() && !ping.busy && !ping.requestError;
+  const showBubble = drafting && !!latestReply && !historyOpen;
   const inputRef = useRef<HTMLInputElement>(null);
   const wasOpen = useRef(false);
   const [visualViewport, setVisualViewport] = useState<{
@@ -1150,150 +1157,50 @@ function FloatingComposer({ ping }: { ping: PingController }) {
     window.addEventListener("keydown", shortcut);
     return () => window.removeEventListener("keydown", shortcut);
   }, [ping.setChat]);
-  const suggestions = [
-    "I got a new job paying $90,000.",
-    "What if I moved to Chicago?",
-  ];
+  const resultActions = mode === "reality" && !ping.busy && !ping.requestError && currentReply && (
+    <div className="chat-result-actions">
+      <button className="text-button" onClick={() => ping.navigate("updates")}>
+        See what changed <ArrowRight size={15} />
+      </button>
+    </div>
+  );
   return (
-    <section
-      className={`floating-composer ${chat ? "expanded" : ""} ${ping.busy ? "is-thinking" : ""}`}
-      role="region"
-      aria-label="Ask Ping"
-      aria-busy={ping.busy}
-      style={
-        visualViewport
-          ? ({
-              "--visual-height": `${visualViewport.height}px`,
-            } as CSSProperties)
-          : undefined
-      }
-    >
-      {chat && (
-        <div className="composer-conversation" id="ping-conversation">
-          <div className="chat-toolbar">
-            <strong>Ask Ping</strong>
-            <button
-              type="button"
-              className="icon-button"
-              aria-label="Hide conversation"
-              onClick={() => ping.setChat(false)}
-            >
-              <ChevronDown size={20} />
-            </button>
-          </div>
-          {universe && (
-            <div className="chat-context">
-              <GitBranch size={15} />
-              <span>{universe.name}</span>
-            </div>
-          )}
-          <div
-            className="chat-messages"
-            role="log"
-            aria-label="Conversation with Ping"
-            aria-relevant="additions"
-            aria-live="polite"
-          >
-            {!ping.thread.length && (
-              <div className="welcome-message">
-                <h3>What's on your mind?</h3>
-                <p>Share an update or explore a possibility.</p>
-                <div className="chat-suggestions">
-                  {suggestions.map((text) => (
-                    <button
-                      key={text}
-                      onClick={() => {
-                        ping.setInput(text);
-                        inputRef.current?.focus();
-                      }}
-                    >
-                      {text}
-                      <ArrowRight size={16} />
-                    </button>
-                  ))}
+    <section className={`ping-dock ${ping.busy ? "is-thinking" : ""}`} role="region" aria-label="Ask Ping" aria-busy={ping.busy}
+      style={visualViewport ? ({ "--visual-height": `${visualViewport.height}px` } as CSSProperties) : undefined}>
+      <div className="ping-dock-heading">
+        <span><Parrot size={22} /><strong>Ping</strong></span>
+        {!!ping.thread.length && <button type="button" className="text-button" aria-expanded={historyOpen} aria-controls="ping-conversation"
+          onClick={() => setHistoryOpen(open => !open)}>
+          <MessageCircle size={15} /> {historyOpen ? "Hide history" : "Conversation history"}
+        </button>}
+      </div>
+      {showBubble && <div className="ping-reply-bubble" aria-label="Previous Ping response">
+        <span>{latestReply.text}</span>
+        <button type="button" className="text-button" onClick={() => setHistoryOpen(true)}>Read conversation</button>
+      </div>}
+      <div className="ping-input-surface">
+        {(historyOpen || (!showBubble && (latestRequest || ping.busy))) && (
+          <div id="ping-conversation" className={`ping-response ${historyOpen ? "show-history" : ""}`}>
+            <div className="ping-response-log" role="log" aria-label="Conversation with Ping" aria-live="polite" aria-relevant="additions text" tabIndex={0}>
+              {(historyOpen ? ping.thread : [latestRequest, !ping.busy ? currentReply : undefined].filter(Boolean)).map(message => message && (
+                <div key={message.id} className={`ping-message ${message.role}`}>
+                  <span className="ping-message-author">{message.role === "user" ? "You" : "Ping"}</span>
+                  <div>{message.text}</div>
                 </div>
-              </div>
-            )}
-            {ping.thread.map((message) => (
-              <div key={message.id} className={`chat-message ${message.role}`}>
-                {message.role === "assistant" && <Parrot size={28} />}
-                <div>{message.text}</div>
-              </div>
-            ))}
-            {ping.busy && (
-              <div className="chat-thinking" role="status">
-                <span className="thinking-dots" aria-hidden="true">
-                  <i />
-                  <i />
-                  <i />
-                </span>
+              ))}
+              {ping.busy && <div className="chat-thinking" role="status">
+                <span className="thinking-dots" aria-hidden="true"><i /><i /><i /></span>
                 <span>Ping is thinking…</span>
-              </div>
-            )}
-            {!!ping.toolSteps.length && !ping.busy && (
-              <details className="tool-activity">
-                <summary>
-                  Ping used {ping.toolSteps.length} tools{" "}
-                  <ChevronDown size={15} />
-                </summary>
-                <ol>
-                  {ping.toolSteps.map((step, index) => (
-                    <li key={index}>
-                      <span>{step.tool.replaceAll("_", " ")}</span>
-                      <b>
-                        {step.status === "ok"
-                          ? "Completed"
-                          : "Corrected / rejected"}
-                      </b>
-                    </li>
-                  ))}
-                </ol>
-              </details>
-            )}
-            {ping.thread.length > 0 && !ping.busy && !ping.requestError && (
-              <div className="chat-result-actions">
-                {mode === "reality" ? (
-                  <button
-                    className="secondary-button"
-                    onClick={() => {
-                      ping.setChat(false);
-                      ping.navigate("updates");
-                    }}
-                  >
-                    See what changed <ArrowRight size={16} />
-                  </button>
-                ) : (
-                  universe && (
-                    <>
-                      <button
-                        className="secondary-button"
-                        onClick={() => {
-                          ping.setChat(false);
-                          ping.openUniverse(universe);
-                        }}
-                      >
-                        Explore this universe <ArrowRight size={16} />
-                      </button>
-                      {universe.parentId && (
-                        <button
-                          className="text-button"
-                          onClick={() => {
-                            ping.setChat(false);
-                            ping.setPage("compare");
-                          }}
-                        >
-                          Compare with original <GitBranch size={16} />
-                        </button>
-                      )}
-                    </>
-                  )
-                )}
-              </div>
-            )}
-            <div ref={ping.bottomRef} />
+              </div>}
+              <div ref={ping.bottomRef} />
+            </div>
+            {!!ping.toolSteps.length && !ping.busy && <details className="tool-activity">
+              <summary>Ping used {ping.toolSteps.length} tools <ChevronDown size={15} /></summary>
+              <ol>{ping.toolSteps.map((step, index) => <li key={index}><span>{step.tool.replaceAll("_", " ")}</span><b>{step.status === "ok" ? "Completed" : "Corrected / rejected"}</b></li>)}</ol>
+            </details>}
+            {resultActions}
           </div>
-        </div>
-      )}
+        )}
       {ping.requestError && (
         <div className="composer-error" role="alert" id="ping-error">
           <span>{ping.requestError}</span>
@@ -1305,7 +1212,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
         onSubmit={(event) => {
           event.preventDefault();
           if (!ping.input.trim() || ping.busy) return;
-          ping.setChat(true);
+          setHistoryOpen(false);
           void ping.send();
         }}
       >
@@ -1317,7 +1224,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
           value={ping.input}
           onChange={(event) => ping.setInput(event.target.value)}
           placeholder="Message Ping…"
-          disabled={ping.busy}
+          readOnly={ping.busy}
         />
         <button
           className="send-button"
@@ -1331,6 +1238,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
           )}
         </button>
       </form>
+      </div>
     </section>
   );
 }
