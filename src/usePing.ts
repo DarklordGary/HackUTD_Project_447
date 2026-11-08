@@ -149,14 +149,14 @@ export function usePing() {
       setToolSteps(tools);
       if (data.answer) {
         setThread([
-          ...conversation,
+          ...history,
           { id: id(), role: "assistant", text: data.answer },
         ]);
         return;
       }
       if (data.clarification) {
         setThread([
-          ...conversation,
+          ...history,
           { id: id(), role: "assistant", text: data.clarification },
         ]);
         return;
@@ -166,7 +166,7 @@ export function usePing() {
         const result = applyReality(state, data, prompt);
         setState(result.state);
         setThread([
-          ...conversation,
+          ...history,
           {
             id: id(),
             role: "assistant",
@@ -214,7 +214,7 @@ export function usePing() {
           role: "assistant",
           text: data.explanation ?? explain(profile, next, source),
         };
-        next.messages = [...conversation, response];
+        next.messages = [...history, response];
         setThread(next.messages);
         setState((prev) => ({
           ...prev,
@@ -237,7 +237,7 @@ export function usePing() {
         );
       }
     } catch (error) {
-      setThread(conversation);
+      setThread(history);
       setRequestError(
         error instanceof Error
           ? error.message

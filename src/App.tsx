@@ -1310,6 +1310,11 @@ function FloatingComposer({ ping }: { ping: PingController }) {
                 </div>
               </div>
             )}
+            {ping.busy && ping.thread.at(-1)?.role !== "user" && (
+              <div className="chat-message user pending-message">
+                <div>{ping.input || "Sending your message…"}</div>
+              </div>
+            )}
             {ping.thread.map((message) => (
               <div key={message.id} className={`chat-message ${message.role}`}>
                 {message.role === "assistant" && <Parrot size={28} />}
@@ -1393,7 +1398,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
       {ping.requestError && (
         <div className="composer-error" role="alert" id="ping-error">
           <span>{ping.requestError}</span>
-          <small>Your message is kept below. Edit it or send again.</small>
+          <small>Your message is back in the composer. Edit it or send again.</small>
         </div>
       )}
       <form
