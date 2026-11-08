@@ -619,6 +619,29 @@ nav {
   stroke: var(--paper);
   stroke-width: 3;
 }
+.timeline-axis-line,
+.timeline-tick {
+  fill: none;
+  stroke: #aeb9aa;
+  stroke-width: 1;
+}
+.timeline-axis-title {
+  fill: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+}
+.timeline-gridline {
+  stroke: #e8ede5;
+  stroke-width: 1;
+  stroke-dasharray: 3 7;
+  pointer-events: none;
+}
+.timeline-event-guide {
+  stroke: #82937a;
+  stroke-width: 1;
+  stroke-dasharray: 4 5;
+  pointer-events: none;
+}
 .reality-continuation,
 .universe-continuation {
   fill: none;

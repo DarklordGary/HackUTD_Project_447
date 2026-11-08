@@ -378,8 +378,10 @@ describe("application demo", () => {
         within(dialog).getByText(/Your real financial profile is updated/),
       ).toBeTruthy(),
     );
-    saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-    expect(saved.profile.annualSalary).toBe(90000);
+    await waitFor(() => {
+      saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
+      expect(saved.profile.annualSalary).toBe(90000);
+    });
     expect(saved.changes[0].before.annualSalary).toBe(72000);
     expect(
       saved.universes[5].events.some(

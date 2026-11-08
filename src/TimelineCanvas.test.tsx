@@ -164,11 +164,11 @@ describe("simplified universe map", () => {
     expect(screen.queryByRole("region", { name: "Event details" })).toBeNull();
   });
 
-  it("opens the bottom branch popup outside the graph scroller without a timeline axis", () => {
+  it("opens the bottom branch popup outside the graph scroller", () => {
     const { state, onSelect } = setup();
     expect(
-      screen.queryByLabelText("Timeline in three-month intervals"),
-    ).toBeNull();
+      screen.getByLabelText("Timeline in three-month intervals"),
+    ).toBeTruthy();
     const marker = screen.getByRole("button", {
       name: /A place to call mine: Save an extra/,
     });
@@ -185,6 +185,71 @@ describe("simplified universe map", () => {
       within(details).getByRole("button", { name: /Explore this month/ }),
     );
     expect(onSelect).toHaveBeenCalledWith(state.universes[1], 1);
+  });
+
+  it("aligns each scheduled event to the shared calendar scale, including after a horizon change", () => {
+    const { profile, universes } = seed();
+    const parent = universes[0];
+    const child = {
+      ...makeUniverse("Chicago", "Move later", [
+        ...parent.events,
+        {
+          id: "move",
+          kind: "expense" as const,
+          label: "Chicago move",
+          month: 12,
+          amount: 3000,
+          estimated: true,
+        },
+        {
+          id: "refund",
+          kind: "income" as const,
+          label: "Deposit refund",
+          month: 13,
+          amount: 1000,
+          estimated: true,
+        },
+      ]),
+      parentId: parent.id,
+    };
+    const props = {
+      universes: [parent, child],
+      profile,
+      horizon: 36,
+      onSelect: vi.fn(),
+      onReality: vi.fn(),
+    };
+    const { rerender } = render(<TimelineCanvas {...props} />);
+    const axis = screen.getByLabelText("Timeline in three-month intervals");
+    expect(within(axis).getByLabelText("Feb 2027, month 3")).toBeTruthy();
+    expect(within(axis).getByLabelText("Nov 2027, month 12")).toBeTruthy();
+    const move = screen.getByRole("button", { name: "Chicago: Chicago move" });
+    const refund = screen.getByRole("button", {
+      name: "Chicago: Deposit refund",
+    });
+    expect(
+      Number(move.querySelector(".marker-dot")!.getAttribute("cx")),
+    ).toBeCloseTo(500 + (12 / 36) * 620);
+    expect(
+      Number(refund.querySelector(".marker-dot")!.getAttribute("cx")),
+    ).toBeCloseTo(500 + (13 / 36) * 620);
+    const moveHit = move.querySelector(".event-hit-area")!;
+    const refundHit = refund.querySelector(".event-hit-area")!;
+    expect(
+      Number(moveHit.getAttribute("x")) + Number(moveHit.getAttribute("width")),
+    ).toBeLessThanOrEqual(Number(refundHit.getAttribute("x")));
+    rerender(<TimelineCanvas {...props} horizon={12} />);
+    expect(
+      Number(
+        screen
+          .getByRole("button", { name: "Chicago: Chicago move" })
+          .querySelector(".marker-dot")!
+          .getAttribute("cx"),
+      ),
+    ).toBe(1120);
+    expect(
+      screen.queryByRole("button", { name: "Chicago: Deposit refund" }),
+    ).toBeNull();
   });
 
   it("supports focus and tap inspection before opening the correct universe month", () => {

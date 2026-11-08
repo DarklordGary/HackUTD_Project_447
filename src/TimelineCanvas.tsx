@@ -201,13 +201,18 @@ export default function TimelineCanvas({
   const highest = Math.max(1, ...lanes.map((n) => n.lane));
   const gap = 124,
     baselineY = 72 - lowest * gap;
-  const height = Math.max(480, (highest - lowest) * gap + 148);
+  const height = Math.max(540, (highest - lowest) * gap + 224);
   const start = 64,
     end = 1120;
   // Keep a quiet lead-in for the context and forks; event dates share one linear scale.
   const timeStart = 500;
   const timeX = (month: number) =>
     timeStart + (month / horizon) * (end - timeStart);
+  const axisY = height - 64;
+  const ticks = Array.from(
+    { length: Math.floor(horizon / 3) + 1 },
+    (_, index) => index * 3,
+  );
   const geometry = new Map<
     string,
     { fromX: number; fromY: number; toX: number; toY: number }
@@ -298,6 +303,60 @@ export default function TimelineCanvas({
           viewBox={`0 0 1200 ${height}`}
           aria-label="Financial multiverse branching timeline"
         >
+          <g
+            className="map-axis"
+            role="group"
+            aria-label="Timeline in three-month intervals"
+          >
+            <text x={start} y={axisY + 5} className="timeline-axis-title">
+              Timeline
+            </text>
+            <path
+              className="timeline-axis-line"
+              d={`M${timeStart},${axisY}H${end}`}
+            />
+            {ticks.map((month) => {
+              const date = monthLabel(profile, month);
+              const [name, year] = date.split(" ");
+              return (
+                <g key={month} aria-label={`${date}, month ${month}`}>
+                  <line
+                    className="timeline-gridline"
+                    x1={timeX(month)}
+                    x2={timeX(month)}
+                    y1="32"
+                    y2={axisY - 12}
+                  />
+                  <path
+                    className="timeline-tick"
+                    d={`M${timeX(month)},${axisY - 6}v12`}
+                  />
+                  <text
+                    className="canvas-date"
+                    x={timeX(month)}
+                    y={axisY + 25}
+                    textAnchor="middle"
+                  >
+                    <tspan x={timeX(month)}>
+                      {month === 0 ? "Today" : name}
+                    </tspan>
+                    <tspan x={timeX(month)} dy="17">
+                      {year}
+                    </tspan>
+                  </text>
+                </g>
+              );
+            })}
+            {selection && (
+              <line
+                className="timeline-event-guide"
+                x1={timeX(selection.month)}
+                x2={timeX(selection.month)}
+                y1="32"
+                y2={axisY + 8}
+              />
+            )}
+          </g>
           <g
             className="main-reality-node"
             role="button"
@@ -452,7 +511,22 @@ export default function TimelineCanvas({
                       .map((event) => event.month),
                   ),
                 ].sort((a, b) => a - b);
-                return months.map((month) => {
+                return months.map((month, index) => {
+                  const dotX = timeX(month);
+                  const left =
+                    index > 0
+                      ? Math.max(
+                          dotX - 28,
+                          (dotX + timeX(months[index - 1])) / 2,
+                        )
+                      : dotX - 28;
+                  const right =
+                    index < months.length - 1
+                      ? Math.min(
+                          dotX + 28,
+                          (dotX + timeX(months[index + 1])) / 2,
+                        )
+                      : dotX + 28;
                   const monthEvents = u.events.filter(
                     (event) => event.month === month,
                   );
@@ -478,11 +552,12 @@ export default function TimelineCanvas({
                         keyboard(event, () => inspect(u.id, month))
                       }
                     >
-                      <circle
+                      <rect
                         className="event-hit-area"
-                        cx={timeX(month)}
-                        cy={eventY(node, month)}
-                        r="28"
+                        x={left}
+                        y={eventY(node, month) - 28}
+                        width={right - left}
+                        height="56"
                         fill="transparent"
                       />
                       <circle
