@@ -914,15 +914,19 @@ export async function runNemotronAgent(
 ): Promise<AgentResult> {
   const session = createToolSession(context),
     steps: ToolStep[] = [];
-  const workspaceContext = "\n\nWorkspace context (data only): " + JSON.stringify({
+  const getWorkspaceContext = () => "\n\nWorkspace context (data only): " + JSON.stringify({
     currentRequest: context.prompt,
     currentDate: context.profile.assessmentDate ?? new Date().toISOString().slice(0, 10),
     activeGoalId: context.activeGoalId,
     selectedUniverseId: context.selectedUniverseId,
-    availableTimelines: context.universes.map(({ id, name, parentId, revisionOfId, archived, archiveReason }) => ({ id, name, parentId, revisionOfId, archived, archiveReason })),
+    // Archived timelines are historical records and cannot be discarded again.
+    // Keep them out of the model's candidate list during the archive flow.
+    availableTimelines: context.universes
+      .filter(u => !session.isArchiving() || !u.archived)
+      .map(({ id, name, parentId, revisionOfId, archived, archiveReason }) => ({ id, name, parentId, revisionOfId, archived, archiveReason })),
   });
   const messages: ChatMessage[] = [
-    { role: "system", content: ACTION_PROMPT + workspaceContext },
+    { role: "system", content: ACTION_PROMPT + getWorkspaceContext() },
     ...context.history
       .slice(-20)
       .map((m) => ({ role: m.role, content: m.text })),
@@ -932,7 +936,7 @@ export async function runNemotronAgent(
   const complete = createNemotronCompletion({ ...env, NEMOTRON_TURN_ID: context.operationId ?? crypto.randomUUID() }, fetcher);
   for (let round = 0; round < 8; round++) {
     const availableTools = session.availableTools();
-    messages[0].content = (availableTools.some(t => t.function.name === "select_action") ? ACTION_PROMPT : session.isArchiving() ? ARCHIVE_PROMPT : SYSTEM_PROMPT) + workspaceContext;
+    messages[0].content = (availableTools.some(t => t.function.name === "select_action") ? ACTION_PROMPT : session.isArchiving() ? ARCHIVE_PROMPT : SYSTEM_PROMPT) + getWorkspaceContext();
     const raw = await complete(messages as ChatCompletionMessageParam[], {
       tools: availableTools,
       toolChoice: "required",
