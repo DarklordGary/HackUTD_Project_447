@@ -1,9 +1,50 @@
 import { describe, expect, it } from "vitest";
-import { assess, simulate } from "./engine";
+import { assess, simulate, currentFacts } from "./engine";
 import { seedExamples as seed } from "./seed-fixtures.test-support";
 import { modelFixture } from "./model-fixtures.test-support";
 import { applyReality, mergeEvents } from "./state";
 describe("deterministic monthly simulation", () => {
+  it("retains the destination budget when a planned move becomes reality", () => {
+    const state = seed();
+    state.profile.assessmentDate = "2026-12-08";
+    const plan = state.universes[0];
+    plan.events = [
+      { id: "rent", kind: "rent", label: "Japan rent", month: 2, amount: 900, estimated: true, groupId: "japan", destination: "Japan" },
+      { id: "cost", kind: "expense", label: "Moving cost", month: 2, amount: 3000, estimated: true, groupId: "japan", destination: "Japan" },
+      { id: "living", kind: "living-expenses", label: "Japan living budget", month: 2, amount: 800, estimated: true, groupId: "japan", destination: "Japan" },
+    ];
+    expect(assess(state.profile, { ...plan, events: plan.events.map(e => ({ ...e, month: 1 })) }).reserve).toBe((900 + 800 + state.profile.obligations) * 3);
+    const result = applyReality(state, {
+      operation: "reality", name: "Moved", description: "", events: [], assumptions: [], assessmentDate: "2026-12-08",
+      reality: { move: { timelineId: plan.id, groupId: "japan", location: "Japan", monthlyLivingExpenses: 850 } },
+    }, "I have moved to Japan; my living budget is $850");
+    const profile = result.state.profile;
+    expect(result.state.universes[0].archived).toBe(true);
+    expect(simulate(profile)[2].expenses).toBe(900 + 850 + profile.obligations);
+    expect(currentFacts(profile).recurring + currentFacts(profile).variable).toBe(850);
+    expect(profile.recurring).toBe(state.profile.recurring);
+    expect(profile.variable).toBe(state.profile.variable);
+  });
+
+  it("replaces living budgets on successive moves while retaining other recurring costs and reserves", () => {
+    const p = seed().profile;
+    const events = [
+      { id: "extra", kind: "monthly-expense" as const, label: "Ongoing extra cost", amount: 50, month: 1, estimated: false },
+      { id: "japan", kind: "living-expenses" as const, label: "Japan budget", amount: 800, month: 2, estimated: true },
+      { id: "later", kind: "living-expenses" as const, label: "Later destination budget", amount: 1000, month: 4, estimated: true },
+    ];
+    const rows = simulate(p, events);
+    expect(rows[1].expenses).toBe(p.rent + p.recurring + p.variable + p.obligations + 50);
+    expect(rows[2].expenses).toBe(p.rent + 800 + p.obligations + 50);
+    expect(rows[4].expenses).toBe(p.rent + 1000 + p.obligations + 50);
+    expect(simulate({ ...p, recurring: 9000, variable: 6000 }, events)[2].expenses).toBe(rows[2].expenses);
+    expect(assess(p, { ...seed().universes[0], events }).reserve).toBe(rows[1].expenses * 3);
+    const actualProfile = { ...p, assessmentDate: "2027-03-01", actualEvents: [{ id: "actual", effectiveDate: "2026-11-01", events }] };
+    const facts = currentFacts(actualProfile);
+    expect(facts.recurring + facts.variable).toBe(1050);
+    expect(simulate(actualProfile)[4].expenses).toBe(rows[4].expenses);
+  });
+
   it("balances the first month to the cent, including debt interest and investment contributions", () => {
     const p = seed().profile;
     const [start, first] = simulate(p);

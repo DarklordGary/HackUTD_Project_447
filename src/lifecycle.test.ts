@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { makeUniverse } from "./seed";
 import { seedExamples as seed } from "./seed-fixtures.test-support";
 import { applyReality, applyArchive, rescheduleGroup } from "./state";
-import { assess, simulate, salaryTarget, loanPayment } from "./engine";
+import { assess, simulate, currentFacts, salaryTarget, loanPayment } from "./engine";
 import { upgradeWorkspace } from "./workspace-upgrade";
 import { workspaceSchema } from "./contracts";
 import type { FinancialEvent } from "./types";
@@ -216,4 +216,19 @@ describe("financed purchases", () => {
     const row = simulate(base(), [{ id: "cash", kind: "expense", label: "Cash boat", amount: 50000, month: 1, estimated: false }])[1];
     expect(row.checking).toBe(-27000); expect(row.debt).toBe(0);
   });
+});
+
+
+it("corrects spending after a realized destination budget without losing the correction on reload", () => {
+  const state = journeyFixture().state;
+  state.profile.actualEvents = [{ id: "moved", effectiveDate: "2026-11-08", events: [
+    { id: "living", kind: "living-expenses", month: 1, label: "Actual living budget", amount: 800, estimated: false },
+    { id: "extra", kind: "monthly-expense", month: 1, label: "Local adjustment", amount: 100, estimated: false },
+  ] }];
+  const updated = applyReality(state, { ...blank, operationId: "budget-correction", reality: { recurring: 200, variable: 75 } }, "My bills are 200 and variable spending is 75").state;
+  const restored = workspaceSchema.parse(JSON.parse(JSON.stringify(updated)));
+  expect(currentFacts(restored.profile)).toMatchObject({ recurring: 200, variable: 75 });
+  const rows = simulate(restored.profile);
+  expect(rows[1].expenses).toBe(restored.profile.rent + 275 + restored.profile.obligations);
+  expect(assess(restored.profile, makeUniverse("Test", "", [])).reserve).toBe((restored.profile.rent + 275 + restored.profile.obligations) * 3);
 });

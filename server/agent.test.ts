@@ -3,7 +3,7 @@ import { createToolSession, runNemotronAgent } from "./agent";
 import type { AgentContext } from "./agent";
 import { seedExamples as seed } from "../src/seed-fixtures.test-support";
 import { simulate } from "../src/engine";
-import { mergeEvents } from "../src/state";
+import { applyReality, mergeEvents } from "../src/state";
 
 function context(mode: AgentContext["mode"] = "branch"): AgentContext {
   const s = seed();
@@ -50,6 +50,27 @@ function completion(name: string, args: unknown, id = "call-1") {
   };
 }
 describe("financial tool dispatcher", () => {
+  it("replaces uploaded spending with a disclosed Japan budget from the move date", () => {
+    const ctx = context();
+    ctx.prompt = "Can I move to Japan?";
+    const before = structuredClone(ctx.profile);
+    const session = createToolSession(ctx);
+    session.execute("select_action", { action: "create_independent_timeline", reportedAs: "hypothetical", requestedChanges: ["move"], scenarioKind: "move" });
+    const args = { destination: "Tokyo, Japan", effectiveDate: "2027-01-01", rent: 900, movingCost: 3000, monthlyLivingExpenses: 800, costAssumptions: ["Illustrative Tokyo single-person budget in USD; not live prices."], name: "Japan move" };
+    expect(() => session.execute("preview_move_scenario", { ...args, monthlyLivingExpenses: undefined, localExpense: 100 })).toThrow();
+    const preview = session.execute("preview_move_scenario", args).output as any;
+    const command = session.execute("apply_preview", { previewId: preview.previewId, explanation: "Calculated Japan scenario." }).final!;
+    expect(command.events.find(e => e.kind === "living-expenses")?.amount).toBe(800);
+    expect(command.assumptions.join(" ")).toContain("Illustrative Tokyo");
+    const events = mergeEvents([], command.events);
+    const rows = simulate(ctx.profile, events);
+    expect(rows[1]).toEqual(simulate(ctx.profile)[1]);
+    expect(rows[2].expenses).toBe(900 + 800 + ctx.profile.obligations + 3000);
+    expect(rows[3].expenses).toBe(900 + 800 + ctx.profile.obligations);
+    expect(rows[3].debtPayments).toBe(simulate(ctx.profile)[3].debtPayments);
+    expect(ctx.profile).toEqual(before);
+  });
+
   it("scopes discarding a plan to an archive preview without salary tools", () => {
     const ctx = context();
     ctx.prompt = `Forget ${ctx.universes[0].name}`;
@@ -523,4 +544,66 @@ describe("Nemotron function-calling protocol", () => {
       runNemotronAgent(context(), { NEMOTRON_API_KEY: "bad" }, fetcher),
     ).rejects.toThrow(/401/);
   });
+});
+
+
+describe("profile life updates", () => {
+  it.each(["create", "branch", "reality"] as const)("clears liquid assets in %s mode without creating a timeline", mode => {
+    const ctx = context(mode);
+    ctx.prompt = "i have 0 in liquid assets";
+    const before = structuredClone(ctx);
+    const session = createToolSession(ctx);
+    session.execute("select_action", { action: "update_real_life", reportedAs: "actual", requestedChanges: ["profile"], profileFields: ["liquidAssets"], salaryMeaning: "none" });
+    const names = session.availableTools().map(t => t.function.name);
+    expect(names).toContain("preview_reality_update");
+    expect(names).not.toContain("simulate_scenario");
+    const preview = session.execute("preview_reality_update", { changes: { liquidAssets: 0 } }).output as any;
+    expect(ctx).toEqual(before);
+    const command = session.execute("apply_preview", { previewId: preview.previewId, explanation: "Updated cash balances." }).final!;
+    expect(command.operation).toBe("reality");
+    const state = { ...seed(), profile: ctx.profile, universes: ctx.universes };
+    const updated = applyReality(state, command, ctx.prompt).state;
+    expect(updated.profile).toMatchObject({ checking: 0, savings: 0 });
+    expect(simulate(updated.profile)[0].liquid).toBe(0);
+    expect(updated.universes).toEqual(state.universes);
+    expect(updated.changes).toHaveLength(1);
+    expect(applyReality(updated, command, ctx.prompt).state).toBe(updated);
+  });
+
+  it("amends every profile input through the preview/apply tools", () => {
+    const ctx = context();
+    const changes = {
+      name: "Sam", location: "Austin", startDate: ctx.profile.startDate,
+      checking: 10, savings: 20, annualSalary: 0, rent: 0, taxRate: .2,
+      recurring: 30, variable: 40, obligations: 50,
+      debts: [{ id: "new-loan", name: "Loan", balance: 1000, apr: .1, payment: 25 }],
+      investments: 60, contribution: 0, investmentReturn: -.01, savingsRate: .03,
+    };
+    const session = createToolSession(ctx);
+    session.execute("select_action", { action: "update_real_life", reportedAs: "actual", requestedChanges: ["profile", "salary", "rent"], salaryMeaning: "annual_total" });
+    const preview = session.execute("preview_reality_update", { changes }).output as any;
+    const command = session.execute("apply_preview", { previewId: preview.previewId, explanation: "Profile corrected." }).final!;
+    const state = { ...seed(), profile: ctx.profile, universes: ctx.universes };
+    const updated = applyReality(state, command, "Correct my profile").state;
+    expect(updated.profile).toMatchObject(changes);
+    expect(simulate(updated.profile)[0]).toMatchObject({ liquid: 30, investments: 60, debt: 1000 });
+    expect(simulate(updated.profile)[1]).toMatchObject({ income: 0, expenses: 120, investmentContribution: 0 });
+    expect(updated.changes[0].before).toEqual(ctx.profile);
+  });
+
+  it("rejects conflicting balances, ambiguous totals, invalid rates, and empty updates", () => {
+    for (const changes of [{ liquidAssets: 0, savings: 1 }, { liquidAssets: 100 }, { taxRate: 20 }, { savings: -1 }, { effectiveDate: "2026-11-08" }, { debts: [], creditPaidOff: true }]) {
+      const session = createToolSession(context());
+      session.execute("select_action", { action: "update_real_life", reportedAs: "actual", requestedChanges: ["profile", "debt_payoff"] });
+      expect(() => session.execute("preview_reality_update", { changes })).toThrow();
+    }
+  });
+});
+
+
+it("requires every selected profile field and rejects unrelated balance changes", () => {
+  const session = createToolSession(context());
+  session.execute("select_action", { action: "update_real_life", reportedAs: "actual", requestedChanges: ["profile"], profileFields: ["savingsRate", "investments", "contribution"] });
+  expect(() => session.execute("preview_reality_update", { changes: { investments: 500 } })).toThrow(/Incomplete profile update/);
+  expect(() => session.execute("preview_reality_update", { changes: { savingsRate: .04, investments: 500, contribution: 0, savings: 0 } })).toThrow(/does not amend savings/);
 });

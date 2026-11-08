@@ -15,6 +15,7 @@
     "test:db": "tsx scripts/verify-sync.ts",
     "test:plan-reference:live": "tsx scripts/verify-plan-reference.ts",
     "test:discard-intent:live": "tsx scripts/verify-discard-intent.ts",
+    "test:profile-intent:live": "tsx scripts/verify-profile-intent.ts",
     "test:reality-intent:live": "tsx scripts/verify-reality-intent.ts",
     "test:branch-intent:live": "tsx scripts/verify-branch-intent.ts",
     "test:lifecycle:live": "tsx scripts/verify-lifecycle.ts",

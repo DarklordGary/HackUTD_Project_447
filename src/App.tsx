@@ -637,13 +637,13 @@ export default function App() {
                   total={
                     facts.rent +
                     facts.recurring +
-                    profile.variable +
+                    facts.variable +
                     profile.obligations
                   }
                   rows={[
                     ["Rent", `${money(facts.rent)}/mo`],
                     ["Bills & subscriptions", `${money(facts.recurring)}/mo`],
-                    ["Variable spending", `${money(profile.variable)}/mo`],
+                    ["Variable spending", `${money(facts.variable)}/mo`],
                     ["Other obligations", `${money(profile.obligations)}/mo`],
                   ]}
                 />
@@ -876,7 +876,7 @@ export default function App() {
                 <SettingRow
                   title="Viability rule"
                   description="Three months of living expenses held as liquid funds; nonnegative cash flow in the final six months."
-                  value={money((profile.rent + profile.recurring + profile.variable + profile.obligations) * 3)}
+                  value={money((facts.rent + facts.recurring + facts.variable + profile.obligations) * 3)}
                 />
               </section>
               <section className="settings-panel">

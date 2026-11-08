@@ -12,7 +12,7 @@ export const financingSchema = z.object({
   runningCosts: z.number().nonnegative(),
 }).strict();
 const eventFields = {
-  kind: z.enum(["salary", "rent", "expense", "income", "monthly-expense", "debt-payment", "contribution", "financed-purchase"]),
+  kind: z.enum(["salary", "rent", "expense", "income", "recurring", "variable", "living-expenses", "monthly-expense", "debt-payment", "contribution", "financed-purchase"]),
   label: z.string().min(1).max(150), month: z.number().int().min(1).max(36),
   amount: z.number().finite().min(-1000000).max(10000000), estimated: z.boolean(),
   groupId: z.string().min(1).max(100).optional(), destination: z.string().min(1).max(100).optional(),
@@ -22,15 +22,40 @@ export const eventSchema = z.object({ ...eventFields, replaceEventId: z.string()
   .refine(e => e.kind === "monthly-expense" || e.amount >= 0, "Amounts must be nonnegative except expense adjustments");
 export const storedEventSchema = z.object({ ...eventFields, fulfilledBy: z.string().max(100).optional(), id: z.string().min(1).max(100) });
 
+/** User-maintained profile facts; internal timestamps and actual history are not editable. */
+export const profileCorrectionSchema = z.object({
+  name: z.string().min(1).max(100),
+  location: z.string().min(1).max(100),
+  startDate: z.iso.date(),
+  checking: z.number().finite(),
+  savings: z.number().nonnegative(),
+  taxRate: z.number().min(0).max(1),
+  recurring: z.number().nonnegative(),
+  variable: z.number().nonnegative(),
+  obligations: z.number().nonnegative(),
+  debts: z.array(z.object({
+    id: z.string().min(1).max(100), name: z.string().min(1).max(100),
+    balance: z.number().nonnegative(), apr: z.number().min(0).max(1),
+    payment: z.number().nonnegative(),
+  }).strict()).max(50),
+  investments: z.number().nonnegative(),
+  contribution: z.number().nonnegative(),
+  investmentReturn: z.number().min(-0.99).max(1),
+  savingsRate: z.number().min(0).max(1).describe("Savings account APR as a decimal: 4% is 0.04. This changes interest, not the savings cash balance."),
+}).partial().strict();
+
 export const realitySchema = z
   .object({
+    ...profileCorrectionSchema.shape,
+    liquidAssets: z.number().nonnegative().optional().describe("Absolute checking + savings total. Zero clears both. For a nonzero total without account balances, ask how to split it. Cannot combine with checking/savings."),
     effectiveDate: z.iso.date().optional(),
     salaryChange: salarySchema.optional(),
     move: z.object({ timelineId: z.string().min(1).max(100), groupId: z.string().min(1).max(100),
       location: z.string().min(1).max(100), rent: z.number().nonnegative().optional(),
+      monthlyLivingExpenses: z.number().nonnegative().optional(),
       movingCost: z.number().nonnegative().optional(), localExpense: z.number().finite().optional(),
     }).strict().optional(),
-    annualSalary: z.number().positive().max(10000000).optional(),
+    annualSalary: z.number().nonnegative().max(10000000).optional(),
     rent: z.number().nonnegative().max(100000).optional(),
     bonus: z.number().nonnegative().max(10000000).optional(),
     creditPaidOff: z.boolean().optional(),

@@ -17,7 +17,7 @@ Open **http://127.0.0.1:5173**. The seeded financial workspace uses browser loca
 
 Main Reality starts with zero hypothetical branches. Use the always-visible Ping composer:
 
-1. **“Can I move to New York?”** creates an independent possibility with disclosed move/rent/local-expense estimates.
+1. **“Can I move to New York?”** creates an independent possibility with disclosed moving costs, destination rent and a full destination living budget in USD. From the move month, that budget replaces uploaded recurring and variable spending; ongoing obligations, debt payments and contributions remain. Country-only requests disclose an assumed city/lifestyle or ask for one. Missing costs are scenario estimates, not live price lookups.
 2. **“What if I got a raise of $20,000 annually and waited 3 months before moving?”** creates a connected alternative, preserving the original and rescheduling the entire move group.
 3. **“I got a raise of $40,000 annually.”** updates actual income and recalculates active plans. Satisfied salary prerequisites are fulfilled, rather than added again.
 4. **“I've moved to New York. The delayed version is the one that happened. Use its estimates provisionally.”** records the move in Main Reality and realizes only that plan. Other versions retain their history and no longer replay the completed move.

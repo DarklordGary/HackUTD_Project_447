@@ -3,7 +3,7 @@ import type { Interpretation } from "./contracts";
 import { assess, money, simulate, dateMonth, salaryTarget, currentFacts } from "./engine";
 import { id, seed } from "./seed";
 import { upgradeWorkspace } from "./workspace-upgrade";
-import { workspaceSchema } from "./contracts";
+import { workspaceSchema, profileCorrectionSchema, profileSchema, realitySchema } from "./contracts";
 export const STORAGE_KEY = "ping.multiverse.v1";
 export function readState(): AppState {
   try {
@@ -114,18 +114,39 @@ export function applyArchive(state: AppState, data: Interpretation) {
 export function applyReality(state: AppState, data: Interpretation, prompt: string) {
   const operationId = data.operationId ?? id();
   if (state.appliedOperationIds?.includes(operationId)) return { state, explanation: "This change was already recorded.", impacts: [] };
-  const change = data.reality;
-  if (!change || !Object.values(change).some(v => v !== undefined)) throw new Error("No supported reality change was identified.");
+  const change = data.reality ? realitySchema.parse(data.reality) : undefined;
+  if (!change || !Object.entries(change).some(([key, value]) => key !== "effectiveDate" && value !== undefined && (key !== "creditPaidOff" || value === true))) throw new Error("No supported reality change was identified.");
   if (change.salaryChange && change.annualSalary !== undefined) throw new Error("Supply salary semantics or absolute salary, not both.");
   const before = structuredClone(state.profile), after = structuredClone(before);
+  const correction = profileCorrectionSchema.parse(Object.fromEntries(
+    Object.keys(profileCorrectionSchema.shape).filter(key => key in change).map(key => [key, change[key as keyof typeof change]]),
+  ));
+  if (Object.keys(correction).length || change.liquidAssets !== undefined) {
+    if (change.effectiveDate && change.effectiveDate !== (data.assessmentDate ?? before.assessmentDate ?? new Date().toISOString().slice(0,10)))
+      throw new Error("Profile balance and assumption corrections apply now; omit effectiveDate. Use a scenario for future changes.");
+    if (change.liquidAssets !== undefined) {
+      if (change.checking !== undefined || change.savings !== undefined) throw new Error("Supply either total liquid assets or account balances, not both.");
+      if (change.liquidAssets !== 0) throw new Error("How much of your liquid assets is in checking versus savings? Supply the account balances.");
+      after.checking = 0; after.savings = 0;
+    }
+    if (change.debts && new Set(change.debts.map(d => d.id)).size !== change.debts.length) throw new Error("Debt IDs must be unique.");
+    if (change.debts && change.creditPaidOff) throw new Error("Supply corrected debts or a cash-funded payoff, not both.");
+    if (change.location !== undefined && change.move) throw new Error("Use the move location when realizing a plan.");
+    Object.assign(after, correction);
+    if (after.actualEvents?.some(a => a.effectiveDate < after.startDate)) throw new Error("The opening date cannot be after recorded actual events.");
+  }
   const now = data.assessmentDate ?? before.assessmentDate ?? new Date().toISOString().slice(0,10);
-  const effectiveDate = change.effectiveDate ?? now, month = dateMonth(before, effectiveDate);
-  if (effectiveDate < before.startDate || month > 36) throw new Error("Actual date must be within the opening snapshot and 36-month horizon; older changes require an opening balance correction.");
+  const effectiveDate = change.effectiveDate ?? now, month = dateMonth(after, effectiveDate);
+  if (effectiveDate < after.startDate || month > 36) throw new Error("Actual date must be within the opening snapshot and 36-month horizon; older changes require an opening balance correction.");
   const isCurrent = effectiveDate <= now;
   if (change.move && !isCurrent) throw new Error("A completed move cannot be future dated. Explore it as a hypothetical instead.");
   const actualSalary = change.salaryChange ? salaryTarget({ ...change.salaryChange, baseline: currentFacts(before).annualSalary }) : change.annualSalary;
-  function addActual(kind: "salary" | "rent", amount: number) {
+  function addActual(kind: "salary" | "rent" | "recurring" | "variable" | "contribution", amount: number) {
     after.actualEvents = [...(after.actualEvents ?? []), { id: operationId + ":" + kind, effectiveDate, events: [{ id: operationId + ":" + kind, kind, label: "Actual " + kind, month: 1, amount, estimated: false }] }];
+  }
+  // Absolute corrections must supersede previously realized spending/contribution events.
+  for (const kind of ["recurring", "variable", "contribution"] as const) {
+    if (change[kind] !== undefined) addActual(kind, change[kind]);
   }
   if (actualSalary !== undefined) {
     after.openingAnnualSalary ??= before.annualSalary;
@@ -153,11 +174,11 @@ export function applyReality(state: AppState, data: Interpretation, prompt: stri
     if (!realized || realized.archived) throw new Error("Choose an active matching plan; this plan is missing or already archived.");
     const group = realized.events.filter(e => e.groupId === move.groupId && !e.fulfilledBy);
     const rent = group.find(e => e.kind === "rent");
-    if (!rent || group.some(e => !["rent", "expense", "income", "monthly-expense"].includes(e.kind))) throw new Error("Choose a move group with rent and only move-related cash events.");
+    if (!rent || group.some(e => !["rent", "expense", "income", "living-expenses", "monthly-expense"].includes(e.kind))) throw new Error("Choose a move group with rent and only move-related cash events.");
     if (!rent.destination || rent.destination.toLowerCase() !== move.location.toLowerCase()) throw new Error("Destination must match the selected move group.");
     if (!group.some(e => e.kind === "expense") && move.movingCost === undefined) throw new Error("No established moving-cost estimate exists. Ask for actual moving cost, including zero.");
     const actual = group.map(e => {
-      const value = e.kind === "rent" ? move.rent : e.kind === "expense" ? move.movingCost : e.kind === "monthly-expense" ? move.localExpense : undefined;
+      const value = e.kind === "rent" ? move.rent : e.kind === "expense" ? move.movingCost : e.kind === "living-expenses" ? move.monthlyLivingExpenses : e.kind === "monthly-expense" ? move.localExpense : undefined;
       if (e.month < rent.month) throw new Error("Earlier move costs require explicit date reconciliation.");
       if (value !== undefined && group.filter(other => other.kind === e.kind).length > 1) throw new Error("Multiple costs need event-level reconciliation.");
       if (e.estimated && (value === undefined || value === e.amount)) disclosure.push(`${e.label}: ${money(e.amount)} (provisional estimate)`);
@@ -165,6 +186,7 @@ export function applyReality(state: AppState, data: Interpretation, prompt: stri
     });
     if (!group.some(e => e.kind === "expense") && move.movingCost !== undefined) actual.push({ id: operationId + ":moving-cost", kind: "expense", label: "Actual moving cost", month: 1, amount: move.movingCost, estimated: false, fulfilledBy: undefined });
     if (!group.some(e => e.kind === "monthly-expense") && move.localExpense !== undefined) actual.push({ id: operationId + ":local-cost", kind: "monthly-expense", label: "Actual local expense adjustment", month: 1, amount: move.localExpense, estimated: false, fulfilledBy: undefined });
+    if (!group.some(e => e.kind === "living-expenses") && move.monthlyLivingExpenses !== undefined) actual.push({ id: operationId + ":living-cost", kind: "living-expenses", label: "Actual destination living expenses", month: 1, amount: move.monthlyLivingExpenses, estimated: false, fulfilledBy: undefined });
     after.location = move.location;
     after.openingRent ??= before.rent;
     after.rent = move.rent ?? rent.amount;
@@ -177,6 +199,7 @@ export function applyReality(state: AppState, data: Interpretation, prompt: stri
       if (groups.size) u.assumptions.push(`Move to ${move.location} realized by ${realized.name}; this alternative's move is superseded by reality.`);
     }
   }
+  profileSchema.parse(after);
   const impacts = universes.filter(u => !u.archived).map(u => {
     const original = state.universes.find(old => old.id === u.id)!;
     const notes: string[] = [];

@@ -77,3 +77,31 @@ it("drives five composer turns, restores context, realizes one plan and starts a
   expect(state().universes[1].archiveReason).toBe("realized");
   expect(state().appliedOperationIds).toHaveLength(5);
 });
+
+
+it("keeps a liquid-assets life update in the conversation and persists it without a new plan", async () => {
+  localStorage.clear(); vi.stubEnv("VITE_SPACETIMEDB_DATABASE", "");
+  Element.prototype.scrollIntoView = vi.fn();
+  vi.stubGlobal("fetch", vi.fn(async (url: string, options?: RequestInit) => {
+    if (url === "/api/status") return { ok: true, json: async () => ({ ai: "Nemotron" }) };
+    const body = JSON.parse(options!.body as string);
+    const session = createToolSession({ ...body, selectedUniverseId: body.universe?.id });
+    session.execute("select_action", { action: "update_real_life", reportedAs: "actual", requestedChanges: ["profile"] });
+    const preview = session.execute("preview_reality_update", { changes: { liquidAssets: 0 } }).output as any;
+    const data = session.execute("apply_preview", { previewId: preview.previewId, explanation: "Cash corrected." }).final;
+    return { ok: true, json: async () => ({ source: "Nemotron", tools: [], data }) };
+  }));
+  const view = render(<App />);
+  fireEvent.change(screen.getByLabelText("Your message to Ping"), { target: { value: "i have 0 in liquid assets" } });
+  fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+  const state = () => JSON.parse(localStorage.getItem(STORAGE_KEY)!) as AppState;
+  await waitFor(() => expect(state().changes).toHaveLength(1));
+  expect(state().profile).toMatchObject({ checking: 0, savings: 0 });
+  expect(state().universes).toHaveLength(0);
+  expect(state().conversation).toHaveLength(2);
+  expect(state().conversation?.[0].text).toBe("i have 0 in liquid assets");
+  view.unmount(); render(<App />);
+  expect(state().profile).toMatchObject({ checking: 0, savings: 0 });
+  expect(state().universes).toHaveLength(0);
+  expect(state().conversation).toHaveLength(2);
+});
