@@ -1436,12 +1436,10 @@ nav {
   margin-top: 7px;
 }
 .floating-composer {
-  position: fixed;
-  left: calc(var(--sidebar) + (100vw - var(--sidebar)) / 2);
-  bottom: 28px;
-  transform: translateX(-50%);
+  position: relative;
+  margin: 0 auto 28px;
   width: 570px;
-  max-width: calc(100vw - var(--sidebar) - 64px);
+  max-width: calc(100% - 64px);
   background: #fffefb;
   border: 1px solid #d5e1cb;
   border-radius: 18px;
@@ -1449,7 +1447,6 @@ nav {
     0 8px 35px #31452913,
     0 1px 2px #31452905;
   padding: 12px;
-  z-index: 30;
   isolation: isolate;
 }
 .floating-composer:focus-within {
@@ -2907,7 +2904,6 @@ nav {
     font-size: 10px;
   }
   .floating-composer {
-    bottom: calc(94px + env(safe-area-inset-bottom, 0px));
     width: calc(100vw - 36px);
     max-width: 560px;
     padding: 10px;
@@ -2943,7 +2939,6 @@ nav {
   .floating-composer.expanded {
     height: calc(100dvh - 184px - env(safe-area-inset-bottom, 0px));
     max-height: 660px;
-    bottom: calc(89px + env(safe-area-inset-bottom, 0px));
     width: calc(100vw - 24px);
     padding: 12px;
   }
@@ -3658,9 +3653,6 @@ nav {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
-  }
-  .floating-composer.expanded {
-    transform: translateX(-50%);
   }
   .universe-lane.is-active .lane-name {
     transform: none;

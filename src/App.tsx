@@ -781,6 +781,12 @@ export default function App() {
                     ? "Hide projections"
                     : "View baseline projections"}
                 </button>
+                <button
+                  className="primary-button"
+                  onClick={() => ping.openChat("reality")}
+                >
+                  <RefreshCw size={14} /> Update reality
+                </button>
               </div>
               {baselineChart && (
                 <section className="chart-panel baseline-chart">
