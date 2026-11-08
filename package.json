@@ -1,0 +1,37 @@
+{
+  "name": "ping-financial-multiverse",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "vitest run",
+    "db:generate": "node scripts/database.mjs generate",
+    "db:start": "node scripts/database.mjs start",
+    "db:publish": "node scripts/database.mjs publish",
+    "db:check": "tsc --project spacetimedb/tsconfig.json",
+    "test:db": "tsx scripts/verify-sync.ts"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "spacetimedb": "2.14.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "jsdom": "^29.1.1",
+    "tsx": "^4.20.0",
+    "typescript": "~5.9.3",
+    "vite": "^7.2.0",
+    "vitest": "^4.0.0"
+  }
+}
