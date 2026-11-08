@@ -301,12 +301,13 @@ export default function App() {
         >
           {page === "timelines" && !universe && (
             <section className="canvas-panel">
-              <div className="canvas-topline">
-                <BranchPicker
-                  universes={visible}
-                  selected={selectedBranches}
-                  onChange={setSelectedBranches}
-                />
+              {visible.length > 0 && (
+                <div className="canvas-topline">
+                  <BranchPicker
+                    universes={visible}
+                    selected={selectedBranches}
+                    onChange={setSelectedBranches}
+                  />
                 <div className="toolbar-actions">
                   <button
                     className="secondary-button compare-action"
@@ -315,7 +316,8 @@ export default function App() {
                     <Layers size={15} /> Compare paths
                   </button>
                 </div>
-              </div>
+                </div>
+              )}
               <TimelineCanvas
                   universes={mapped}
                   colorUniverses={state.universes}

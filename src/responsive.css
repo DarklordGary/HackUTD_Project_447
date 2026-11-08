@@ -21,9 +21,13 @@ body,
 }
 .sidebar > .brand {
   padding-inline: 20px;
+  padding-right: 60px;
   margin-bottom: 28px;
   gap: 10px;
-  min-height: 40px;
+  min-height: 44px;
+}
+.sidebar-collapsed .sidebar > .brand {
+  padding-inline: 0;
 }
 .sidebar .brand-mark {
   width: 32px;
@@ -485,6 +489,9 @@ body,
 }
 
 @media (max-width: 900px) {
+  .sidebar-collapse-toggle {
+    display: none;
+  }
   :root {
     --sidebar: 0px;
     --mobile-nav-height: calc(76px + env(safe-area-inset-bottom, 0px));

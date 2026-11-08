@@ -57,7 +57,8 @@ describe("application demo", () => {
     render(<App />);
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).universes).toEqual([]);
     expect(screen.queryByRole("button", { name: "Open A New York chapter" })).toBeNull();
-    expect(screen.getByText("Branches (0)")).toBeTruthy();
+    expect(screen.queryByText(/^Branches \(/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Compare paths" })).toBeNull();
     fireEvent.click(screen.getAllByRole("button", { name: "Settings" })[0]);
     expect(screen.getByText("Viability rule")).toBeTruthy();
   });

@@ -275,7 +275,7 @@ details[open] > *:not(summary) {
 }
 .sidebar-collapse-toggle {
   position: absolute;
-  top: 4px;
+  top: 20px;
   right: 8px;
   width: 44px;
   height: 44px;
@@ -302,7 +302,6 @@ details[open] > *:not(summary) {
   padding: 0;
 }
 .sidebar-collapsed .sidebar-collapse-toggle {
-  top: 4px;
   left: 10px;
   z-index: 1;
 }
@@ -2377,7 +2376,7 @@ nav {
 .branch-options {
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  left: 0;
   z-index: 25;
   width: 320px;
   max-width: calc(100vw - 32px);
