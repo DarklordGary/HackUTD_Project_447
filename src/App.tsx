@@ -15,6 +15,11 @@ import {
   ListTree,
   Loader2,
   MessageCircle,
+  Map,
+  List,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Plus,
   RefreshCw,
   Send,
   Settings2,
@@ -44,6 +49,10 @@ export default function App() {
   const [metric, setMetric] = useState<Metric>("savings");
   const [showArchived, setShowArchived] = useState(false);
   const [baselineChart, setBaselineChart] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [timelineView, setTimelineView] = useState<"map" | "list">(() =>
+    window.matchMedia?.("(max-width: 900px)").matches ? "list" : "map",
+  );
   const [selectedBranches, setSelectedBranches] = useState<string[]>(() => {
     try {
       const saved = JSON.parse(
@@ -189,8 +198,16 @@ export default function App() {
             ? "Compare paths"
             : "Timelines";
   return (
-    <div className="app-shell reference-layout">
+    <div className={`app-shell reference-layout ${sidebarCollapsed ? "sidebar-collapsed" : ""}`}>
       <aside className="sidebar">
+        <button
+          className="sidebar-collapse-toggle"
+          onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+        </button>
         <button
           className="brand"
           onClick={showTimelines}
@@ -578,11 +595,18 @@ export default function App() {
                   Monthly cash flow{" "}
                   <b className="positive">+{money(baseline[1].netCashFlow)}</b>
                 </span>
+                <button
+                  className="secondary-button baseline-projections-toggle"
+                  onClick={() => setBaselineChart((v) => !v)}
+                >
+                  <TrendingUp size={15} />
+                  {baselineChart ? "Hide projections" : "View projections"}
+                </button>
               </div>
               <div className="baseline-grid">
                 <FinancialColumn
                   title="Income"
-                  subtitle="What comes in"
+                  subtitle=""
                   totalLabel="Monthly take-home"
                   total={baseline[1].income}
                   rows={[
@@ -599,7 +623,7 @@ export default function App() {
                 />
                 <FinancialColumn
                   title="Liquid Assets"
-                  subtitle="Ready when life happens"
+                  subtitle=""
                   totalLabel="Total available"
                   total={baseline[0].liquid}
                   rows={[
@@ -613,7 +637,7 @@ export default function App() {
                 />
                 <FinancialColumn
                   title="Recurring Expenses"
-                  subtitle="Your regular commitments"
+                  subtitle=""
                   totalLabel="Monthly living expenses"
                   total={
                     facts.rent +
@@ -629,14 +653,12 @@ export default function App() {
                   ]}
                 />
               </div>
-              <details className="baseline-more">
-                <summary>
-                  Debt & investments <ChevronDown size={17} />
-                </summary>
+              <section className="baseline-more">
+                <h3>Debt & investments</h3>
                 <div className="baseline-secondary">
                   <FinancialColumn
                     title="Outstanding Debt"
-                    subtitle="The other side of the balance"
+                    subtitle=""
                     totalLabel="Total debt"
                     total={baseline[0].debt}
                     rows={profile.debts.map((d) => [
@@ -647,7 +669,7 @@ export default function App() {
                   />
                   <FinancialColumn
                     title="Investments"
-                    subtitle="Working toward your future"
+                    subtitle=""
                     totalLabel="Invested today"
                     total={profile.investments}
                     rows={[
@@ -663,28 +685,7 @@ export default function App() {
                     ]}
                   />
                 </div>
-              </details>
-              <div className="baseline-actions">
-                <span>
-                  <Check size={14} /> Predefined demo profile · no account
-                  linking needed
-                </span>
-                <button
-                  className="secondary-button"
-                  onClick={() => setBaselineChart((v) => !v)}
-                >
-                  <TrendingUp size={15} />
-                  {baselineChart
-                    ? "Hide projections"
-                    : "View baseline projections"}
-                </button>
-                <button
-                  className="primary-button"
-                  onClick={() => ping.openChat("reality")}
-                >
-                  <RefreshCw size={14} /> Update reality
-                </button>
-              </div>
+              </section>
               {baselineChart && (
                 <section className="chart-panel baseline-chart">
                   <div className="chart-toolbar">
@@ -1413,7 +1414,7 @@ function FinancialColumn({
     <section className="financial-column">
       <header>
         <h2>{title}</h2>
-        <p>{subtitle}</p>
+        {subtitle && <p>{subtitle}</p>}
       </header>
       <div className="financial-total">
         <b>

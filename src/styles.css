@@ -268,6 +268,63 @@ details[open] > *:not(summary) {
   display: flex;
   flex-direction: column;
   z-index: 20;
+  transition: width 180ms var(--ease);
+}
+.app-shell.sidebar-collapsed {
+  --sidebar: 64px;
+}
+.sidebar-collapse-toggle {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--feedback);
+}
+.sidebar:hover .sidebar-collapse-toggle,
+.sidebar:focus-within .sidebar-collapse-toggle {
+  opacity: 1;
+  pointer-events: auto;
+  background: var(--soft);
+}
+.sidebar-collapse-toggle:hover {
+  background: var(--soft);
+}
+.sidebar-collapsed .brand {
+  margin-top: 0;
+  justify-content: center;
+  padding: 0;
+}
+.sidebar-collapsed .sidebar-collapse-toggle {
+  top: 4px;
+  left: 10px;
+  z-index: 1;
+}
+.sidebar-collapsed:hover .brand-mark img,
+.sidebar-collapsed:focus-within .brand-mark img {
+  visibility: hidden;
+}
+.sidebar-collapsed .brand > span + span,
+.sidebar-collapsed .nav-item > span,
+.sidebar-collapsed .nav-item small,
+.sidebar-collapsed .profile > div:last-child,
+.sidebar-collapsed .profile-settings {
+  display: none;
+}
+.sidebar-collapsed .nav-item {
+  justify-content: center;
+  padding-inline: 0;
+}
+.sidebar-collapsed .profile-row,
+.sidebar-collapsed .profile {
+  justify-content: center;
+  padding-inline: 0;
 }
 .brand {
   display: flex;
@@ -1267,6 +1324,10 @@ nav {
   padding: 30px 0 38px;
   margin-bottom: 12px;
 }
+.baseline-projections-toggle {
+  margin-left: auto;
+  align-self: flex-start;
+}
 .baseline-overview > span {
   display: flex;
   flex-direction: column;
@@ -1281,6 +1342,29 @@ nav {
   letter-spacing: -1.1px;
   font-weight: 600;
   color: var(--ink);
+}
+.baseline-overview {
+  margin-bottom: 18px;
+}
+.baseline-grid {
+  gap: 16px;
+}
+.baseline-grid .financial-column,
+.baseline-secondary .financial-column {
+  padding: 18px;
+}
+.baseline-grid .financial-total,
+.baseline-secondary .financial-total {
+  padding: 18px 0 14px;
+  gap: 6px;
+}
+.baseline-grid .financial-total > b,
+.baseline-secondary .financial-total > b {
+  font-size: 28px;
+}
+.baseline-grid .financial-row,
+.baseline-secondary .financial-row {
+  padding: 9px 0;
 }
 .baseline-overview .positive {
   color: var(--primary);
@@ -1325,6 +1409,7 @@ nav {
   color: var(--muted);
 }
 .financial-detail {
+  position: relative;
   border-top: 1px solid var(--line);
 }
 .financial-detail > summary {
@@ -1332,6 +1417,18 @@ nav {
   font-weight: 400;
   color: var(--muted);
   padding-top: 4px;
+}
+.financial-detail[open] > .financial-rows {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: -8px;
+  right: -8px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgb(34 48 38 / 16%);
 }
 .financial-row {
   display: flex;
@@ -1341,6 +1438,13 @@ nav {
   font-size: 12px;
   padding: 17px 0;
   border-top: 1px solid #ecf0e8;
+}
+.financial-row:first-child {
+  border-top: 0;
+}
+.financial-row:first-child,
+.financial-row:last-child {
+  padding-block: 9px;
 }
 .financial-row small {
   display: block;
@@ -1356,26 +1460,27 @@ nav {
 }
 .baseline-more {
   border-top: 1px solid var(--line);
-  margin-top: 34px;
-  padding-top: 12px;
+  margin-top: 18px;
+  padding-top: 10px;
 }
-.baseline-more > summary {
+.baseline-more > h3 {
   font-size: 14px;
   font-weight: 500;
+  margin: 0;
 }
 .baseline-secondary {
   grid-template-columns: 1fr 1fr;
-  padding-top: 24px;
+  padding-top: 12px;
 }
 .baseline-secondary .financial-column {
-  padding: 28px;
+  padding: 18px;
 }
 .baseline-actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  margin-top: 30px;
+  margin-top: 16px;
 }
 .baseline-actions > span {
   display: flex;
@@ -1389,6 +1494,43 @@ nav {
 }
 .baseline-chart {
   margin-top: 32px;
+}
+.baseline-chart {
+  /* Projections may continue below the first-screen baseline summary. */
+  margin-top: 32px;
+}
+@media (min-width: 1001px) and (max-height: 900px) {
+  .workspace-content:has(.baseline-overview) {
+    overflow-y: auto;
+  }
+  .baseline-overview {
+    padding: 8px 0 12px;
+  }
+  .baseline-overview b {
+    font-size: 28px;
+  }
+  .baseline-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .baseline-grid > .financial-column:last-child {
+    grid-column: auto;
+  }
+  .baseline-grid > .financial-column:last-child .financial-total {
+    padding: 18px 0 14px;
+  }
+  .baseline-grid > .financial-column:last-child .financial-rows {
+    display: block;
+  }
+  .baseline-more {
+    margin-top: 12px;
+  }
+  .baseline-secondary {
+    padding-top: 8px;
+  }
+  .baseline-actions {
+    margin-top: 12px;
+  }
 }
 .baseline-chart .chart-toolbar {
   flex-wrap: wrap;
