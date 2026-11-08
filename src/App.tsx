@@ -13,9 +13,7 @@ import {
   Layers,
   ListTree,
   Loader2,
-  Maximize2,
   MessageCircle,
-  Minimize2,
   Map,
   List,
   Plus,
@@ -297,11 +295,6 @@ export default function App() {
                     <List size={16} /> List
                   </button>
                 </div>
-                <span className="timeline-count">
-                  {timelineView === "map"
-                    ? `${mapped.length} branches`
-                    : `${active.length} possibilities`}
-                </span>
                 {timelineView === "map" && (
                   <BranchPicker
                     universes={visible}
@@ -309,14 +302,13 @@ export default function App() {
                     onChange={setSelectedBranches}
                   />
                 )}
-                <Horizon value={ping.horizon} onChange={ping.setHorizon} />
               </div>
               {timelineView === "map" && (
                 <TimelineCanvas
                   universes={mapped}
                   colorUniverses={state.universes}
                   profile={profile}
-                  horizon={ping.horizon}
+                  horizon={36}
                   onSelect={selectUniverse}
                   onReality={showBaseline}
                   onBranch={(universe) => ping.openChat("branch", universe)}
@@ -1213,34 +1205,14 @@ function FloatingComposer({ ping }: { ping: PingController }) {
       aria-modal={chat ? false : undefined}
       aria-label={chat ? "A chat with Ping" : "Ask Ping"}
     >
-      <div className="composer-header">
-        <span className="composer-identity">
-          <Parrot size={32} />
-          <label htmlFor="ping-input">Ask Ping</label>
-          <span className="ai-status" title={ping.ai}>
-            <i />
-            {ping.ai.includes("Demo") ? "Demo" : "Live"}
-          </span>
-        </span>
-        <button
-          ref={toggleRef}
-          className="icon-button composer-toggle"
-          onClick={() => ping.setChat(!chat)}
-          aria-label={chat ? "Close chat" : "Expand chat"}
-          aria-expanded={chat}
-          aria-controls="ping-conversation"
-          title={chat ? "Close chat (Esc)" : "Open Ping (Ctrl+K)"}
-        >
-          {chat ? (
-            <Minimize2 size={18} />
-          ) : (
-            <>
-              <kbd>Ctrl K</kbd>
-              <Maximize2 size={16} />
-            </>
-          )}
-        </button>
-      </div>
+      <button
+        ref={toggleRef}
+        className="sr-only"
+        onClick={() => ping.setChat(!chat)}
+        aria-label={chat ? "Close chat" : "Expand chat"}
+        aria-expanded={chat}
+        aria-controls="ping-conversation"
+      />
       {chat && (
         <div className="composer-conversation" id="ping-conversation">
           <div className="chat-mode">
@@ -1428,34 +1400,7 @@ function FloatingComposer({ ping }: { ping: PingController }) {
           )}
         </button>
       </form>
-      {mode === "reality" && (
-        <div className="composer-caption">
-          <RefreshCw size={13} /> Updating your real baseline
-        </div>
-      )}
     </section>
-  );
-}
-function Horizon({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (n: number) => void;
-}) {
-  return (
-    <div className="segmented" aria-label="Timeline horizon">
-      {[12, 24, 36].map((n) => (
-        <button
-          key={n}
-          aria-pressed={value === n}
-          className={value === n ? "chosen" : ""}
-          onClick={() => onChange(n)}
-        >
-          {n / 12}Y
-        </button>
-      ))}
-    </div>
   );
 }
 function MetricControls({

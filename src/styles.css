@@ -521,10 +521,6 @@ nav {
 .segmented button {
   min-width: 45px;
 }
-.timeline-count {
-  font-size: 13px;
-  color: var(--muted);
-}
 .timeline-scroll {
   position: relative;
   border: 1px solid var(--line);
@@ -593,29 +589,6 @@ nav {
 }
 .reality-continuation {
   stroke: #687762;
-}
-.branch-add {
-  cursor: pointer;
-}
-.branch-add circle {
-  fill: var(--paper);
-  stroke: var(--line);
-  stroke-width: 1;
-  transition:
-    fill var(--feedback),
-    stroke var(--feedback);
-}
-.branch-add path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  pointer-events: none;
-}
-.branch-add:hover circle,
-.branch-add:focus-visible circle {
-  fill: var(--soft);
-  stroke: currentColor;
 }
 .reality-line-path {
   fill: none;
@@ -1473,60 +1446,6 @@ nav {
   box-shadow: 0 10px 36px #31452919;
   border-color: #b9ceaa;
 }
-.composer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 0 8px 9px;
-}
-.composer-identity {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-.composer-identity > label {
-  font-size: 14px;
-  font-weight: 550;
-  cursor: text;
-}
-.ai-status {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border-radius: 5px;
-  background: #f0f5e9;
-  color: #536d44;
-  font-size: 10px;
-  padding: 3px 5px;
-  margin-left: 3px;
-}
-.ai-status > i {
-  height: 4px;
-  width: 4px;
-  border-radius: 50%;
-  background: #7f9b68;
-}
-.composer-toggle {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  width: auto;
-  min-width: 44px;
-  padding: 8px;
-  min-height: 40px;
-  height: 40px;
-}
-.composer-toggle kbd {
-  font-family: inherit;
-  font-size: 10px;
-  color: var(--muted);
-  border: 1px solid #e2e8d9;
-  border-radius: 4px;
-  padding: 3px 5px;
-  white-space: nowrap;
-}
 .composer-form {
   display: flex;
   align-items: center;
@@ -1582,15 +1501,6 @@ nav {
 .send-button:active:not(:disabled) {
   transform: scale(0.94);
 }
-.composer-caption {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  font-size: 11px;
-  color: #816733;
-  margin: 11px 4px 2px;
-}
 .floating-composer.expanded {
   height: min(670px, calc(100dvh - 130px));
   display: flex;
@@ -1598,12 +1508,6 @@ nav {
   animation: composer-in var(--enter) var(--ease);
   transform-origin: bottom center;
   box-shadow: 0 16px 65px #2d42252b;
-}
-.expanded .composer-header {
-  padding: 4px 8px 14px;
-}
-.expanded .composer-toggle kbd {
-  display: none;
 }
 .composer-conversation {
   min-height: 0;
@@ -2229,6 +2133,7 @@ nav {
 .canvas-instruction {
   font-size: 13px;
   padding: 18px 12px 0;
+  color: #4f6250;
 }
 .branch-picker {
   position: relative;
@@ -2593,9 +2498,6 @@ nav {
   .canvas-topline {
     gap: 14px;
   }
-  .timeline-count {
-    font-size: 12px;
-  }
   .view-switch button,
   .segmented button {
     padding: 8px 12px;
@@ -2844,10 +2746,6 @@ nav {
     font-size: 12px;
     padding: 8px 12px;
   }
-  .timeline-count {
-    margin-left: auto;
-    font-size: 11px;
-  }
   .canvas-topline > .segmented {
     margin-left: auto;
   }
@@ -2926,19 +2824,6 @@ nav {
     border-radius: 16px;
     left: 50%;
   }
-  .composer-header {
-    padding: 0 6px 7px;
-  }
-  .composer-identity > label {
-    font-size: 13px;
-  }
-  .composer-identity > svg {
-    height: 29px;
-    width: 29px;
-  }
-  .composer-toggle kbd {
-    display: none;
-  }
   .composer-form {
     padding: 7px 8px 7px 13px;
     gap: 10px;
@@ -2957,9 +2842,6 @@ nav {
     max-height: 660px;
     width: calc(100vw - 24px);
     padding: 12px;
-  }
-  .expanded .composer-header {
-    padding: 2px 6px 12px;
   }
   .chat-mode {
     padding: 10px 6px;
@@ -3043,10 +2925,6 @@ nav {
   }
   .composer-error small {
     font-size: 10px;
-  }
-  .composer-caption {
-    font-size: 10px;
-    margin-top: 9px;
   }
   .page-heading,
   .detail-page-heading {
@@ -3513,9 +3391,6 @@ nav {
   .toolbar-actions .secondary-button {
     padding: 11px 12px;
     font-size: 11px;
-  }
-  .timeline-count {
-    font-size: 10px;
   }
   .view-switch button,
   .segmented button {
