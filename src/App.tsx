@@ -227,27 +227,27 @@ export default function App() {
             <TrendingUp size={19} />
             <span>My Baseline</span>
           </button>
-          <button
-            className={`nav-item ${page === "settings" ? "active" : ""}`}
-            aria-label="Settings"
-            aria-current={page === "settings" ? "page" : undefined}
-            onClick={() => {
-              ping.navigate("settings");
-              ping.setChat(false);
-            }}
-          >
-            <Settings2 size={19} />
-            <span>Settings</span>
-          </button>
         </nav>
         <div className="sidebar-bottom">
-          <div className="profile">
+          <div className="profile-row">
+            <div className="profile">
             <div className="avatar">AM</div>
             <div>
               {profile.name}
               <small>{profile.location}</small>
             </div>
-            <span className="profile-dot" />
+            </div>
+            <button
+              className={`profile-settings ${page === "settings" ? "active" : ""}`}
+              aria-label="Settings"
+              aria-current={page === "settings" ? "page" : undefined}
+              onClick={() => {
+                ping.navigate("settings");
+                ping.setChat(false);
+              }}
+            >
+              <Settings2 size={18} />
+            </button>
           </div>
         </div>
       </aside>

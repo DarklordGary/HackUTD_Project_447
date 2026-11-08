@@ -368,6 +368,29 @@ nav {
   font-size: 13px;
   font-weight: 500;
 }
+.profile-row {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--line);
+}
+.profile-row .profile {
+  flex: 1;
+  border-top: 0;
+}
+.profile-settings {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  margin-right: 10px;
+  border-radius: 8px;
+  color: var(--muted);
+}
+.profile-settings:hover,
+.profile-settings.active {
+  color: var(--primary);
+  background: var(--soft);
+}
 .profile small {
   display: block;
   font-size: 11px;
@@ -385,13 +408,6 @@ nav {
   background: var(--soft);
   color: #667b57;
   font-size: 11px;
-}
-.profile-dot {
-  height: 5px;
-  width: 5px;
-  border-radius: 50%;
-  background: #829c6e;
-  margin-left: auto;
 }
 .main-shell {
   margin-left: var(--sidebar);
@@ -2543,9 +2559,6 @@ nav {
     padding: 23px 8px;
     font-size: 12px;
     gap: 8px;
-  }
-  .profile-dot {
-    display: none;
   }
   .workspace-health {
     font-size: 10px;
