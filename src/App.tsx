@@ -241,10 +241,6 @@ export default function App() {
           </button>
         </nav>
         <div className="sidebar-bottom">
-          <div className="workspace-health">
-            <i />
-            <div>{ping.storage}</div>
-          </div>
           <div className="profile">
             <div className="avatar">AM</div>
             <div>
