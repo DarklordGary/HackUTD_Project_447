@@ -13,8 +13,16 @@ import App from "./App";
 import { modelFixture } from "./model-fixtures.test-support";
 import userEvent from "@testing-library/user-event";
 import { STORAGE_KEY } from "./state";
+import { seed, makeUniverse } from "./seed";
 beforeEach(() => {
   localStorage.clear();
+  // Scenario interaction tests explicitly load existing branches; fresh users start empty.
+  const workspace = seed();
+  workspace.examplesVersion = 2;
+  const chicago = makeUniverse("Move to Chicago", "Existing child timeline", []);
+  chicago.parentId = workspace.universes[0].id;
+  workspace.universes.push(chicago);
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(workspace));
   vi.stubEnv("VITE_SPACETIMEDB_DATABASE", "");
   Element.prototype.scrollIntoView = vi.fn();
   vi.stubGlobal(
@@ -44,6 +52,15 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 describe("application demo", () => {
+  it("starts with only Main Reality and keeps settings usable without branches", () => {
+    localStorage.clear();
+    render(<App />);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).universes).toEqual([]);
+    expect(screen.queryByRole("button", { name: "Open A New York chapter" })).toBeNull();
+    expect(screen.getByText("Branches (0)")).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: "Settings" })[0]);
+    expect(screen.getByText("Viability rule")).toBeTruthy();
+  });
   it("applies Nemotron's reality operation even when the selected context is a branch", async () => {
     render(<App />);
     const before = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
@@ -212,19 +229,21 @@ describe("application demo", () => {
         .getAttribute("aria-busy"),
     ).toBe("false");
   });
-  it("keeps input focus inline and offers conversation history on narrow screens", () => {
+  it("keeps input focus inline and opens conversation after sending on narrow screens", async () => {
     vi.stubGlobal("matchMedia", (query: string) => ({
       matches: query === "(max-width: 900px)",
     }));
     render(<App />);
-    expect(screen.getByLabelText("Your timelines")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Map" }));
+    expect(screen.getByLabelText("Financial multiverse branching timeline")).toBeTruthy();
     fireEvent.focus(screen.getByLabelText("Your message to Ping"));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByRole("log")).toBeNull();
     expect(screen.queryByRole("combobox")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "New universe" }));
-    expect(screen.getByRole("log")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Your message to Ping"), {
+      target: { value: "Can I move to New York?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByRole("log")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Hide conversation" }));
     expect(screen.queryByRole("log")).toBeNull();
     expect(document.activeElement).toBe(
@@ -297,21 +316,15 @@ describe("application demo", () => {
       screen.getByLabelText("Your message to Ping"),
     );
   });
-  it("switches between the map and list without changing saved finances", () => {
+  it("uses the universe map without a view toggle or changing saved finances", () => {
     render(<App />);
     const original = localStorage.getItem(STORAGE_KEY);
     expect(
       screen.getByLabelText("Financial multiverse branching timeline"),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "List" }));
-    expect(
-      screen.queryByLabelText("Financial multiverse branching timeline"),
-    ).toBeNull();
-    expect(screen.getByLabelText("Your timelines")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Map" }));
-    expect(
-      screen.getByLabelText("Financial multiverse branching timeline"),
-    ).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Timeline view" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "List" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Map" })).toBeNull();
     expect(screen.queryByLabelText("Your timelines")).toBeNull();
     expect(localStorage.getItem(STORAGE_KEY)).toBe(original);
   });
@@ -347,7 +360,6 @@ describe("application demo", () => {
       },
     );
     render(<App />);
-    fireEvent.click(screen.getByRole("button", { name: "New universe" }));
     const prompt = "Can I move to New York?";
     fireEvent.change(screen.getByLabelText("Your message to Ping"), {
       target: { value: prompt },
@@ -430,7 +442,6 @@ describe("application demo", () => {
     );
     render(<App />);
     const original = localStorage.getItem(STORAGE_KEY);
-    fireEvent.click(screen.getByRole("button", { name: "New universe" }));
     const dialog = screen.getByRole("region", { name: "Ask Ping" });
     fireEvent.change(within(dialog).getByLabelText("Your message to Ping"), {
       target: { value: "How much is in checking?" },
@@ -510,7 +521,6 @@ describe("application demo", () => {
     fireEvent.click(screen.getByRole("button", { name: /My Baseline/ }));
     expect(screen.getByText("$30,400")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Timelines/ }));
-    fireEvent.click(screen.getByRole("button", { name: "New universe" }));
     let dialog = screen.getByRole("region", { name: "Ask Ping" });
     fireEvent.change(within(dialog).getByLabelText("Your message to Ping"), {
       target: { value: "Can I move to New York?" },
@@ -596,7 +606,6 @@ describe("application demo", () => {
   it("keeps the state unchanged when a request needs clarification", async () => {
     render(<App />);
     const before = localStorage.getItem(STORAGE_KEY);
-    fireEvent.click(screen.getByRole("button", { name: "New universe" }));
     const dialog = screen.getByRole("region", { name: "Ask Ping" });
     fireEvent.change(within(dialog).getByLabelText("Your message to Ping"), {
       target: { value: "Make me rich" },

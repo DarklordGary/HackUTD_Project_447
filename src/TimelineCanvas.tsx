@@ -633,10 +633,6 @@ export default function TimelineCanvas({
             document.body,
           )}
       </div>
-      <p className="canvas-instruction">
-        Select a path to explore. Hollow dots are events; diamonds are branch
-        points.
-      </p>
     </div>
   );
 }

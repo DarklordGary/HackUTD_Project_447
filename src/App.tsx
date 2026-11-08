@@ -14,9 +14,6 @@ import {
   ListTree,
   Loader2,
   MessageCircle,
-  Map,
-  List,
-  Plus,
   RefreshCw,
   Send,
   Settings2,
@@ -46,9 +43,6 @@ export default function App() {
   const [metric, setMetric] = useState<Metric>("savings");
   const [showArchived, setShowArchived] = useState(false);
   const [baselineChart, setBaselineChart] = useState(false);
-  const [timelineView, setTimelineView] = useState<"map" | "list">(() =>
-    window.matchMedia?.("(max-width: 900px)").matches ? "list" : "map",
-  );
   const [selectedBranches, setSelectedBranches] = useState<string[]>(() => {
     try {
       const saved = JSON.parse(
@@ -284,36 +278,16 @@ export default function App() {
           ref={mainRef}
           tabIndex={-1}
           aria-label={title}
-          className={`workspace-content ${page === "timelines" && !universe && timelineView === "map" ? "canvas-workspace" : ""}`}
+          className={`workspace-content ${page === "timelines" && !universe ? "canvas-workspace" : ""}`}
         >
           {page === "timelines" && !universe && (
             <section className="canvas-panel">
               <div className="canvas-topline">
-                <div
-                  className="view-switch"
-                  role="group"
-                  aria-label="Timeline view"
-                >
-                  <button
-                    aria-pressed={timelineView === "map"}
-                    onClick={() => setTimelineView("map")}
-                  >
-                    <Map size={16} /> Map
-                  </button>
-                  <button
-                    aria-pressed={timelineView === "list"}
-                    onClick={() => setTimelineView("list")}
-                  >
-                    <List size={16} /> List
-                  </button>
-                </div>
-                {timelineView === "map" && (
-                  <BranchPicker
-                    universes={visible}
-                    selected={selectedBranches}
-                    onChange={setSelectedBranches}
-                  />
-                )}
+                <BranchPicker
+                  universes={visible}
+                  selected={selectedBranches}
+                  onChange={setSelectedBranches}
+                />
                 <div className="toolbar-actions">
                   <button
                     className="secondary-button compare-action"
@@ -321,16 +295,9 @@ export default function App() {
                   >
                     <Layers size={15} /> Compare paths
                   </button>
-                  <button
-                    className="primary-button"
-                    onClick={() => ping.openChat()}
-                  >
-                    <Plus size={16} /> New universe
-                  </button>
                 </div>
               </div>
-              {timelineView === "map" && (
-                <TimelineCanvas
+              <TimelineCanvas
                   universes={mapped}
                   colorUniverses={state.universes}
                   profile={profile}
@@ -338,22 +305,9 @@ export default function App() {
                   onSelect={selectUniverse}
                   onReality={showBaseline}
                   onBranch={(universe) => ping.openChat("branch", universe)}
-                />
-              )}
-              <div className="canvas-footer">
-                <div
-                  className="canvas-legend"
-                  role="group"
-                  aria-label="Chart legend"
-                >
-                  <span>
-                    <i className="reality-line" /> Main Reality
-                  </span>
-                  <span>
-                    <i className="event-circle" /> Life event
-                  </span>
-                </div>
-                {state.universes.some((u) => u.archived) && (
+              />
+              {state.universes.some((u) => u.archived) && (
+                <div className="canvas-footer">
                   <label className="archive-toggle">
                     <input
                       type="checkbox"
@@ -362,44 +316,6 @@ export default function App() {
                     />{" "}
                     Show archived
                   </label>
-                )}
-              </div>
-              {timelineView === "list" && (
-                <div className="timeline-directory" aria-label="Your timelines">
-                  {(showArchived ? state.universes : active).map((u) => (
-                    <div className="directory-item" key={u.id}>
-                      <button onClick={() => selectUniverse(u)}>
-                        <UniverseIcon icon={u.icon} size={16} />
-                        <span>{u.name}</span>
-                        <small>{u.description}</small>
-                        <span
-                          className={`status ${!assess(profile, u).viable ? "warning" : ""}`}
-                        >
-                          {u.archived ? "Archived" : assess(profile, u).status}
-                        </span>
-                      </button>
-                      <button
-                        className="icon-button"
-                        aria-label={`Branch ${u.name}`}
-                        onClick={() => ping.openChat("branch", u)}
-                      >
-                        <GitBranch size={15} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {!active.length && (
-                <div className="empty-state">
-                  <GitBranch size={28} />
-                  <h2>A new possibility starts here.</h2>
-                  <p>Ask Ping a “what if” to create your first path.</p>
-                  <button
-                    className="primary-button"
-                    onClick={() => ping.openChat()}
-                  >
-                    Explore a possibility <ArrowRight size={14} />
-                  </button>
                 </div>
               )}
             </section>
@@ -971,7 +887,7 @@ export default function App() {
                 <SettingRow
                   title="Viability rule"
                   description="Three months of living expenses held as liquid funds; nonnegative cash flow in the final six months."
-                  value={money(assess(profile, state.universes[0]).reserve)}
+                  value={money((profile.rent + profile.recurring + profile.variable + profile.obligations) * 3)}
                 />
               </section>
               <section className="settings-panel">
@@ -980,7 +896,7 @@ export default function App() {
                   <div>
                     <h3>Return to the starting point</h3>
                     <p>
-                      Restore Alex’s profile and the three original timelines.
+                      Restore Alex’s profile with only the main timeline.
                     </p>
                   </div>
                   <button
@@ -1032,7 +948,7 @@ export default function App() {
               <>
                 <p>
                   This replaces your saved demo changes with Alex’s original
-                  financial profile and three seeded timelines.
+                  financial profile and the main timeline, with no branches.
                 </p>
                 <div className="modal-actions">
                   <button
