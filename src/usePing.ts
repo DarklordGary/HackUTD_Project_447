@@ -5,18 +5,22 @@ import {
   mergeAssumptions,
   mergeEvents,
   readState,
-  STORAGE_KEY,
   applyReality,
   applyArchive,
 } from "./state";
 import { simulate } from "./engine";
 import { colors, id, makeUniverse, seed } from "./seed";
 import { interpret } from "./interpreter";
-import { connectPersistence } from "./sync";
+import { connectPersistence, type AccountProfile } from "./sync";
+import { useAccountSession } from "./accounts";
 import { upgradeWorkspace } from "./workspace-upgrade";
+import type { BaselineChanges } from "./BaselineEditor";
+import type { Profile } from "./types";
 type Page = "timelines" | "baseline" | "settings" | "compare" | "updates";
 export function usePing() {
-  const [state, setState] = useState<AppState>(readState);
+  const session = useAccountSession();
+  const [account, setAccount] = useState<AccountProfile | null>(null);
+  const [state, setState] = useState<AppState>(() => readState(session.storageKey));
   const [page, setPage] = useState<Page>("timelines");
   const [recentUniverseId, setRecentUniverseId] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -65,17 +69,19 @@ export function usePing() {
     syncRef.current = connectPersistence(
       (remote) => setState(upgradeWorkspace(remote)),
       setStorage,
+      { token: session.token, displayName: session.displayName, onAccount: setAccount },
     );
+    syncRef.current.save(latestState.current);
     return () => syncRef.current?.close();
-  }, []);
+  }, [session.token, session.storageKey]);
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      localStorage.setItem(session.storageKey, JSON.stringify(state));
       syncRef.current?.save(state);
     } catch {
       setStorage("Device storage full — changes in memory");
     }
-  }, [state]);
+  }, [state, session.storageKey]);
   useEffect(() => {
     const reduced = window.matchMedia?.(
       "(prefers-reduced-motion: reduce)",
@@ -109,6 +115,17 @@ export function usePing() {
   function navigate(next: Page) {
     setPage(next);
     setSelected(null);
+  }
+  function saveBaseline(changes: BaselineChanges, original: Profile) {
+    const current = latestState.current;
+    if (current.profile !== original) throw new Error("Your baseline changed while you were editing. Cancel and reopen the editor to use the latest values.");
+    const result = applyReality(current, {
+      name: "Baseline edited", description: "Baseline values updated manually", events: [], assumptions: [],
+      operation: "reality", reality: changes,
+    }, "Edited baseline values");
+    latestState.current = result.state;
+    setState(result.state);
+    setToast("Baseline updated. New branches will use these values.");
   }
   function openChat(next: Mode = "create", target?: Universe) {
     setRequestError("");
@@ -344,6 +361,11 @@ export function usePing() {
     setToast("Monthly projections exported");
   }
   return {
+    account,
+    saveAccount: async (displayName: string) => {
+      if (!syncRef.current) throw new Error("Database is not connected.");
+      await syncRef.current.saveAccount(displayName);
+    },
     state,
     setState,
     page,
@@ -381,6 +403,7 @@ export function usePing() {
     allRows,
     selectedRows,
     navigate,
+    saveBaseline,
     openChat,
     openUniverse,
     send,

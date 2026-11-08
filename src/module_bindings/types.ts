@@ -10,6 +10,22 @@ import {
   type Infer as __Infer,
 } from "spacetimedb";
 
+export const Account = __t.object("Account", {
+  owner: __t.identity(),
+  displayName: __t.string(),
+  email: __t.string(),
+  authenticated: __t.bool(),
+  createdAt: __t.timestamp(),
+  updatedAt: __t.timestamp(),
+});
+export type Account = __Infer<typeof Account>;
+
+export const MyAccount = __t.object("MyAccount", {});
+export type MyAccount = __Infer<typeof MyAccount>;
+
+export const MyWorkspace = __t.object("MyWorkspace", {});
+export type MyWorkspace = __Infer<typeof MyWorkspace>;
+
 export const Workspace = __t.object("Workspace", {
   owner: __t.identity(),
   payload: __t.string(),

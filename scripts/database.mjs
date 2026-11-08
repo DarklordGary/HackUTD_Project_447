@@ -1,6 +1,10 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { loadEnv } from "vite";
+const env = { ...loadEnv("development", process.cwd(), ""), ...process.env };
+const server = env.SPACETIMEDB_URI || env.VITE_SPACETIMEDB_URI || "http://127.0.0.1:3000";
+const database = env.SPACETIMEDB_DATABASE || env.VITE_SPACETIMEDB_DATABASE || "ping-accounts-local";
 const local = path.resolve(
   ".spacetime/bin",
   process.platform === "win32" ? "spacetimedb-cli.exe" : "spacetime",
@@ -18,12 +22,11 @@ const commands = {
   publish: [
     "publish",
     "--server",
-    "http://127.0.0.1:3000",
+    server.replace(/^ws/, "http"),
     "--module-path",
     "spacetimedb",
-    "--anonymous",
     "--yes=skip-login",
-    "ping-local",
+    database,
   ],
   generate: [
     "generate",
@@ -41,7 +44,7 @@ if (!args) throw new Error("Use start, publish, or generate");
 const child = spawn(cli, args, { stdio: "inherit", windowsHide: true });
 child.on("error", () => {
   console.error(
-    "SpacetimeDB CLI not found. Install it from https://spacetimedb.com/install or run the device-persistent demo with VITE_SPACETIMEDB_DATABASE unset.",
+    "SpacetimeDB CLI not found. Install it from https://spacetimedb.com/install or use device storage with VITE_SPACETIMEDB_DATABASE unset.",
   );
   process.exit(1);
 });

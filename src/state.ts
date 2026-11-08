@@ -5,9 +5,9 @@ import { id, seed } from "./seed";
 import { upgradeWorkspace } from "./workspace-upgrade";
 import { workspaceSchema, profileCorrectionSchema, profileSchema, realitySchema } from "./contracts";
 export const STORAGE_KEY = "ping.multiverse.v1";
-export function readState(): AppState {
+export function readState(storageKey = STORAGE_KEY): AppState {
   try {
-    const data = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    const data = JSON.parse(localStorage.getItem(storageKey) || "null");
     if (
       data?.version === 1 &&
       Array.isArray(data.universes) &&
@@ -15,7 +15,7 @@ export function readState(): AppState {
     )
       return upgradeWorkspace(workspaceSchema.parse(data));
   } catch {
-    /* Restore seeded profile if storage is corrupt. */
+    /* Restore the initial profile if storage is corrupt. */
   }
   return upgradeWorkspace(seed());
 }
@@ -25,7 +25,7 @@ export function mergeEvents(
   removeEventIds: string[] = [],
   explicitOperations = false,
 ): FinancialEvent[] {
-  // Live tool calls replace/remove exact IDs; legacy label matching is only for the offline demo.
+  // Live tool calls replace/remove exact IDs; legacy label matching supports offline scenarios.
   return [
     ...existing.filter(
       (old) =>
@@ -80,7 +80,7 @@ export function explain(profile: Profile, universe: Universe, source: string) {
   const reserve = firstShortfall ? ` Liquid funds are ${money(firstShortfall.liquid)} in ${firstShortfall.date} (month ${firstShortfall.month}), compared with ${money(shortfallReserve!)} for three months of modeled living expenses.` : "";
   const negative = rows.slice(1).filter(r => r.netCashFlow < 0);
   const cashFlow = negative.length ? ` Negative monthly cash flow: ${negative.map(r => `${r.date} (month ${r.month}): ${money(r.netCashFlow)}`).join("; ")}.` : " No modeled month has negative cash flow.";
-  return `${source === "Nemotron" ? "I have interpreted" : "Demo interpretation of"} your scenario. At 36 months, the engine projects ${money(end.netWorth)} net worth and ${money(end.savings)} savings.${reserve}${cashFlow} Open any month to see the breakdown. These are estimates, not guarantees.`;
+  return `${source === "Nemotron" ? "I have interpreted your scenario" : "Here is your scenario projection"}. At 36 months, the engine projects ${money(end.netWorth)} net worth and ${money(end.savings)} savings.${reserve}${cashFlow} Open any month to see the breakdown. These are estimates, not guarantees.`;
 }
 
 export function rescheduleGroup(events: FinancialEvent[], groupId: string, delay: number) {

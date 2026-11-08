@@ -1,3 +1,11 @@
+.account-app { height: 100%; }
+.account-welcome { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
+.account-welcome .settings-panel { max-width: 560px; padding: 32px; }
+.account-welcome button { margin: 8px 8px 8px 0; min-height: 44px; }
+.account-settings form { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-block: 20px; }
+.account-settings label, .account-settings form p { flex-basis: 100%; }
+.account-settings input { min-width: 0; max-width: 100%; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; font: inherit; }
+.account-settings button { min-height: 44px; }
 :root {
   font-family: "DM Sans", Arial, sans-serif;
   color: #303b33;
@@ -412,6 +420,11 @@ nav {
 .profile-row .profile {
   flex: 1;
   border-top: 0;
+  text-align: left;
+  min-height: 44px;
+}
+.profile-row .profile:hover {
+  background: var(--soft);
 }
 .profile-settings {
   display: grid;

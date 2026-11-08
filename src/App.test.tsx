@@ -218,6 +218,7 @@ describe("application demo", () => {
     fireEvent.change(screen.getByLabelText("Your message to Ping"), { target: { value: "forget the boat" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     await screen.findByText(/I've set aside fishing boat/);
+    await waitFor(() => expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).universes.find((u: any) => u.id === boat.id).archived).toBe(true));
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     expect(saved.profile).toEqual(workspace.profile);
     expect(saved.changes).toEqual(workspace.changes);
@@ -250,7 +251,7 @@ describe("application demo", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Keep exploring" }));
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!).universes).toHaveLength(4);
     fireEvent.click(screen.getByRole("button", { name: "Start over" }));
-    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reset demo" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reset workspace" }));
     const reset = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
     expect(reset.universes).toEqual([]);
     expect(reset.profile.annualSalary).toBe(72000);
@@ -273,7 +274,7 @@ describe("application demo", () => {
     const input = screen.getByLabelText("Your message to Ping");
     fireEvent.change(input, { target: { value: "Can I move to New York?" } });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    await screen.findByText(/Demo interpretation of your scenario/);
+    await screen.findByText(/Here is your scenario projection/);
     expect(screen.getByLabelText("Financial multiverse branching timeline")).toBeTruthy();
     expect(screen.queryByRole("heading", { name: "Branch Summary" })).toBeNull();
     await waitFor(() => expect(document.querySelector(".universe-lane.is-new")).toBeTruthy());
@@ -485,7 +486,7 @@ describe("application demo", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     expect(await screen.findByRole("log")).toBeTruthy();
-    await screen.findByText(/Demo interpretation of your scenario/);
+    await screen.findByText(/Here is your scenario projection/);
     expect(screen.queryByRole("heading", { name: "Branch Summary" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Conversation history" }));
     expect(screen.getByRole("button", { name: "Hide history" }).getAttribute("aria-expanded")).toBe("true");
@@ -613,7 +614,7 @@ describe("application demo", () => {
       (screen.getByLabelText("Your message to Ping") as HTMLInputElement).value,
     ).toBe(prompt);
     fireEvent.click(screen.getByRole("button", { name: "Send message" }));
-    await screen.findByText(/Demo interpretation of your scenario/);
+    await screen.findByText(/Here is your scenario projection/);
     expect(screen.queryByRole("alert")).toBeNull();
     expect(within(screen.getByRole("log")).getAllByText(prompt)).toHaveLength(
       1,
@@ -768,7 +769,7 @@ describe("application demo", () => {
     );
     await waitFor(() =>
       expect(
-        within(dialog).getByText(/Demo interpretation of your scenario/),
+        within(dialog).getByText(/Here is your scenario projection/),
       ).toBeTruthy(),
     );
     await waitFor(() =>
@@ -864,7 +865,7 @@ describe("application demo", () => {
     await waitFor(() =>
       expect(
         within(screen.getByRole("region", { name: "Ask Ping" })).getByText(
-          /Demo interpretation of your scenario/,
+          /Here is your scenario projection/,
         ),
       ).toBeTruthy(),
     );

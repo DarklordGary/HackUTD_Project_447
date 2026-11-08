@@ -1,0 +1,10 @@
+.baseline-editor { padding: 24px; margin-bottom: 24px; border: 1px solid var(--line); border-radius: 16px; background: var(--paper); }
+.baseline-editor > p { margin-block: 12px 20px; color: var(--muted); line-height: 1.6; }
+.baseline-editor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 20px; }
+.baseline-editor fieldset { min-width: 0; border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+.baseline-editor legend { padding-inline: 6px; font-weight: 600; }
+.baseline-editor label { display: grid; gap: 7px; margin-block: 8px 16px; font-size: 14px; }
+.baseline-editor input { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--canvas); color: var(--ink); font-size: 16px; }
+.baseline-editor-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+.baseline-editor-actions button { min-height: 44px; }
+.baseline-editor [role="alert"] { color: #9a3131; }

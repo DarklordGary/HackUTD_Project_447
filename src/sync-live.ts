@@ -1,9 +1,11 @@
 import { DbConnection } from "./module_bindings";
 import { workspaceSchema } from "./contracts";
 import type { AppState } from "./types";
+import type { SyncOptions } from "./sync";
 export function connectLive(
   onRemote: (state: AppState) => void,
   onStatus: (s: string) => void,
+  options: SyncOptions = {},
 ) {
   let ready = false,
     closed = false,
@@ -17,15 +19,21 @@ export function connectLive(
   const connection = DbConnection.builder()
     .withUri(uri)
     .withDatabaseName(database)
-    .withToken(localStorage.getItem(tokenKey) || undefined)
+    .withToken(options.token || localStorage.getItem(tokenKey) || undefined)
     .onConnect((conn, identity, token) => {
       if (closed) {
         conn.disconnect();
         return;
       }
-      localStorage.setItem(tokenKey, token);
+      if (!options.token) localStorage.setItem(tokenKey, token);
+      const applyAccount = () => {
+        const row = conn.db.myAccount.owner.find(identity);
+        if (row) options.onAccount?.(row);
+      };
+      conn.db.myAccount.onInsert(applyAccount);
+      conn.db.myAccount.onUpdate(applyAccount);
       const apply = () => {
-        const row = conn.db.workspace.owner.find(identity);
+        const row = conn.db.myWorkspace.owner.find(identity);
         if (!row || row.payload === lastPayload) return;
         try {
           const remote = workspaceSchema.parse(JSON.parse(row.payload));
@@ -45,11 +53,16 @@ export function connectLive(
           onStatus("Cloud state unreadable · saved locally");
         }
       };
-      conn.db.workspace.onInsert(apply);
-      conn.db.workspace.onUpdate(apply);
+      conn.db.myWorkspace.onInsert(apply);
+      conn.db.myWorkspace.onUpdate(apply);
       conn
         .subscriptionBuilder()
         .onApplied(() => {
+          applyAccount();
+          if (!conn.db.myAccount.owner.find(identity)) {
+            void conn.reducers.updateAccount({ displayName: options.displayName || "New explorer" })
+              .catch(() => onStatus("Account setup failed · retry in Settings"));
+          }
           apply();
           ready = true;
           onStatus("Live with SpacetimeDB");
@@ -57,7 +70,7 @@ export function connectLive(
         })
         .onError(() => onStatus("Sync interrupted · saved locally"))
         .subscribe(
-          `SELECT * FROM workspace WHERE owner = 0x${identity.toHexString()}`,
+          ["SELECT * FROM my_workspace", "SELECT * FROM my_account"],
         );
     })
     .onConnectError(() => onStatus("SpacetimeDB unavailable · saved locally"))
@@ -78,14 +91,14 @@ export function connectLive(
         expectedRevision: revision,
       });
       const row = connection.identity
-        ? connection.db.workspace.owner.find(connection.identity)
+        ? connection.db.myWorkspace.owner.find(connection.identity)
         : undefined;
       revision = row?.revision ?? revision + 1;
       lastPayload = payload;
       onStatus("Live with SpacetimeDB");
     } catch (error) {
       const row = connection.identity
-        ? connection.db.workspace.owner.find(connection.identity)
+        ? connection.db.myWorkspace.owner.find(connection.identity)
         : undefined;
       if (row && row.revision > revision) {
         revision = row.revision;
@@ -104,6 +117,10 @@ export function connectLive(
     }
   }
   return {
+    async saveAccount(displayName: string) {
+      if (!ready || closed) throw new Error("SpacetimeDB is disconnected. Retry when connected.");
+      await connection.reducers.updateAccount({ displayName });
+    },
     save(state: AppState) {
       queued = state;
       void flush();

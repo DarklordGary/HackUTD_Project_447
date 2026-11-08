@@ -1,6 +1,6 @@
 # Ping — Financial Multiverse
 
-A React + Vite + TypeScript prototype for exploring alternate financial lives. It includes seeded finances, independent universes, conversational edits, branching, comparisons, life updates, notifications, and monthly financial projections.
+A React + Vite + TypeScript prototype for exploring alternate financial lives. It includes a financial profile, independent universes, conversational edits, branching, comparisons, life updates, notifications, and monthly financial projections.
 
 ## Run
 
@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173**. The seeded financial workspace uses browser localStorage, while chat uses the configured Brev-hosted Nemotron deployment. There is no phrase-based inference fallback. No login, account linking, or personal financial input is needed.
+Open **http://127.0.0.1:5173**. The financial workspace saves locally and syncs to the configured SpacetimeDB database. SpacetimeAuth enables account sign-in when configured below; guest mode remains available. Chat uses the configured Brev-hosted Nemotron deployment.
 
 ## Try the story
 
@@ -25,7 +25,7 @@ Main Reality starts with zero hypothetical branches. Use the always-visible Ping
 
 Outcomes depend on the supplied amounts, dates and disclosed estimates. Results show amounts, dates and signed dollar comparisons without categorical timeline verdicts. Cash purchases never create modeled loan debt. See [lifecycle implementation and verification](docs/conversational-timeline-implementation.md) for the fixed-date fixture and limitations.
 
-The map remains the primary view. Select a path or event to inspect its projections and Branch Summary. Savings, Net Worth, Cash Flow and Debt share the deterministic engine. The composer and durable active goal retain conversation context across navigation and reload. Manually archived and realized plans retain historical projections; realized plans cannot be restored as pending moves. Settings → Reset demo restores Main Reality with no hypothetical branches.
+The map remains the primary view. Select a path or event to inspect its projections and Branch Summary. Savings, Net Worth, Cash Flow and Debt share the deterministic engine. The composer and durable active goal retain conversation context across navigation and reload. Manually archived and realized plans retain historical projections; realized plans cannot be restored as pending moves. Settings → Reset workspace restores Main Reality with no hypothetical branches.
 
 ## Nemotron on Brev
 
@@ -70,9 +70,21 @@ A standalone destination alternative defaults to an independent timeline from ba
 
 ## SpacetimeDB
 
-The TypeScript module is in `spacetimedb/src/index.ts`; generated, typed SDK bindings are checked in at `src/module_bindings`. The module persists each seeded workspace as an atomic aggregate with an optimistic revision counter. SDK subscriptions deliver reactive changes across connections sharing the same anonymous identity. The SDK token is retained locally; there is no authentication UI.
+The TypeScript module is in `spacetimedb/src/index.ts`; generated SDK bindings are checked in at `src/module_bindings`. Private `workspace` and `account` tables store financial workspaces and user profiles. Public `my_workspace` and `my_account` views expose only the authenticated caller's row using `ctx.sender`. Reducers also derive the owner from the caller; no caller can supply someone else's identity. Workspaces use optimistic revision checks, including initial creation.
 
-Install the [official SpacetimeDB CLI](https://spacetimedb.com/install). A project-local CLI under `.spacetime/bin` is also recognized. In separate terminals:
+Accounts store a display name, verified email (when supplied by SpacetimeAuth), authentication status, and creation/update timestamps. Email comes from server-validated JWT claims, never a browser form. Click your sidebar name (Edit profile), or open Settings → Your account, to change the display name. The sidebar name and initials follow the SpacetimeDB account subscription, including edits from another connection. Passwords and recovery are handled by SpacetimeAuth. The financial data is labeled Financial profile in Settings and do not supply the sidebar identity.
+
+The prepared workspace now uses the hosted [Ping database](https://spacetimedb.com/@vinhnguyentcu/ping-financial-multiverse-6a1h3). Its module and SpacetimeAuth client are deployed and `.env.local` is configured:
+
+```dotenv
+VITE_SPACETIMEDB_URI=wss://maincloud.spacetimedb.com
+VITE_SPACETIMEDB_DATABASE=ping-financial-multiverse-6a1h3
+VITE_SPACETIMEAUTH_CLIENT_ID=client_034u7GevSYr8WQlN8ObOSR
+```
+
+Email magic-link login is enabled, with callback and logout URLs for both `127.0.0.1:5173` and `localhost:5173`. Hosted anonymous login is disabled; the app's separate guest option still works. The CLI is authenticated to the owner account for later publishes. This only hosts the database and authentication; the React app and Nemotron middleware still run locally.
+
+For a separate local database, install the [official SpacetimeDB CLI](https://spacetimedb.com/install). A project-local CLI under `.spacetime/bin` is also recognized. Set the local values below before running these commands in separate terminals:
 
 ```sh
 npm run db:start
@@ -83,14 +95,32 @@ Set these values in `.env.local`, then restart Vite:
 
 ```dotenv
 VITE_SPACETIMEDB_URI=ws://127.0.0.1:3000
-VITE_SPACETIMEDB_DATABASE=ping-local
+VITE_SPACETIMEDB_DATABASE=ping-accounts-local
 ```
 
-On this prepared workspace the local module has already been published and `.env.local` points to it. If the database is unavailable, the UI reports the connection status and continues storing changes on the device. A fresh browser identity starts its own seeded workspace. The module's public table and client-side row filter are appropriate for this fictional demo; production financial data would require server-enforced read isolation, not merely a filtered subscription.
+The previous `ping-local` and `ping-accounts-local` databases are preserved. Their original anonymous publisher identities differ from the current cloud login; use a new local database name for new local development. The publish script reads the URI/name from `.env.local` (or `SPACETIMEDB_URI` / `SPACETIMEDB_DATABASE` environment overrides).
+
+If the database is unavailable, the UI reports the connection status and keeps changes locally. Guests retain a database-scoped SDK token in localStorage. Guests cannot recover that identity after clearing storage or use it automatically on another device.
+
+### Enable account sign-in
+
+1. Create a SpacetimeAuth project and a public web OAuth client using the [official setup and React integration guide](https://spacetimedb.com/docs/core-concepts/authentication/spacetimeauth/react-integration/). Enable email login or your chosen identity providers there.
+2. Allow redirect URI `http://127.0.0.1:5173/callback` and post-logout URI `http://127.0.0.1:5173`. Add corresponding production URLs when deploying. `localhost` and `127.0.0.1` are different origins.
+3. Set `VITE_SPACETIMEAUTH_CLIENT_ID` to the public client ID in `.env.local`, then restart Vite. No client secret belongs in the frontend.
+
+Visitors see the Ping homepage at `/`, with separate sign-in (`/#/signin`) and sign-up (`/#/signup`) pages and guest access. Both account pages continue to the same SpacetimeAuth passwordless flow: first authentication creates an account, and returning users recover their existing identity. The hosted provider manages credentials; Ping stores the display name, verified email, timestamps, and identity-owned workspace in private SpacetimeDB tables. The homepage remains available without an auth client configured, with account actions disabled and guest access enabled.
+
+OAuth uses authorization code with PKCE and automatic token renewal through `react-oidc-context`. The ID token authenticates the database connection. Signing out unmounts the account workspace; switching users remounts it with a separate local cache. Silent token renewal keeps the workspace mounted. Existing signed-in workspaces load from SpacetimeDB on another device. Guest data is kept separate and is not automatically imported into an account.
+
+Homepage/auth verification: 121 automated tests passed, including hosted redirect actions, redirect failures, expired sessions, silent renewal, guest entry/exit, and missing configuration. Production build, database type check, and live cloud persistence/privacy checks passed. These new pages have not had visual browser QA or a real inbox email-link login test in this pass.
+
+Verification on November 8, 2026: cloud integration checks passed for persistence, restore, live updates, profile validation, stale-write rejection and cross-user privacy. Browser verification completed the OAuth callback using a temporary anonymous SpacetimeAuth user, connected to the hosted database, and saved/restored an account display name. Anonymous hosted login was then disabled. Email delivery and the email-link login itself require a user's inbox and have not been tested.
 
 After changing the database schema, run `npm run db:generate` and republish. Data files and binaries under `.spacetime/` are ignored by Git.
 
 ## Financial model
+
+In **My Baseline → Edit baseline**, edit salary, tax rate, account balances, expenses, investment assumptions, and existing debt balances/APRs/payments. **Save baseline** records the change, recalculates active projections, and queues the updated workspace through the existing SpaceTimeDB sync. New branches use the saved profile; archived snapshots remain intact. Cancel discards the draft, and a profile changed by another update must be reopened before saving. Offline changes retain the existing local-save behavior and connection-status feedback.
 
 `src/engine.ts` is the sole calculation engine. It processes month-indexed events in order, applies after-tax salary and recurring expenses, amortizes debts with monthly interest, applies investment growth and contributions, and transfers cash flow to/from savings while maintaining a checking buffer. When liquid funds run out, negative checking remains visible rather than concealing insolvency. Paying off a credit card consumes actual liquid funds and does not invent net worth.
 
@@ -119,7 +149,7 @@ npm run test:db
 npm run test:lifecycle:live
 ```
 
-Tests cover cent-level calculations, deterministic behavior, scheduled events, debt payoff, insolvency, relative event references, branch independence, reality-update accounting, and the complete demo journey. The database check verifies persistence, restore on a second connection, reactive updates, and stale-write rejection against a real local SpacetimeDB instance.
+Tests cover financial calculations, scenario interactions, account editing feedback and local account-cache isolation. The real database check verifies persistence, restore on a second connection, reactive updates, stale-write rejection, profile validation, and isolation from a different identity through both views and direct SQL.
 
 Lifecycle verification: 73 automated tests, production build, database type check, real database persistence/concurrency check, and an asserted five-turn live Nemotron smoke test pass. The composer journey is tested in jsdom; no visual browser QA was performed for this change.
 

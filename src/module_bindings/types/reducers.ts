@@ -7,5 +7,7 @@ import { type Infer as __Infer } from "spacetimedb";
 
 // Import all reducer arg schemas
 import SaveWorkspaceReducer from "../save_workspace_reducer";
+import UpdateAccountReducer from "../update_account_reducer";
 
 export type SaveWorkspaceParams = __Infer<typeof SaveWorkspaceReducer>;
+export type UpdateAccountParams = __Infer<typeof UpdateAccountReducer>;

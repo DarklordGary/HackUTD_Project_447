@@ -35,14 +35,21 @@ import {
   ProjectionChart,
 } from "./components";
 import TimelineCanvas, { selectMapUniverses } from "./TimelineCanvas";
+import { AccountSettings } from "./AccountSettings";
+import { BaselineEditor } from "./BaselineEditor";
+import { useAccountSession } from "./accounts";
 
 type Metric = "savings" | "netWorth" | "netCashFlow" | "debt";
 export default function App() {
   const ping = usePing();
+  const session = useAccountSession();
+  const accountName = ping.account?.displayName || session.displayName || (session.authenticated ? "Your account" : "Guest");
+  const accountInitials = accountName.trim().split(/\s+/).slice(0, 2).map(part => Array.from(part)[0]).join("").toUpperCase();
   const { state, profile, universe, baseline, page, selectedRows } = ping;
   const [metric, setMetric] = useState<Metric>("savings");
   const [showArchived, setShowArchived] = useState(false);
   const [baselineChart, setBaselineChart] = useState(false);
+  const [editingBaseline, setEditingBaseline] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedBranches, setSelectedBranches] = useState<string[]>(() => {
     try {
@@ -240,13 +247,14 @@ export default function App() {
         </nav>
         <div className="sidebar-bottom">
           <div className="profile-row">
-            <div className="profile">
-              <div className="avatar">AM</div>
+            <button className="profile" aria-label={`Edit profile for ${accountName}`} title="Edit your account profile"
+              onClick={() => { ping.navigate("settings"); ping.setChat(false); }}>
+              <div className="avatar" aria-hidden="true">{accountInitials}</div>
               <div>
-                {profile.name}
-                <small>{profile.location}</small>
+                {accountName}
+                <small>Edit profile</small>
               </div>
-            </div>
+            </button>
             <button
               className={`profile-settings ${page === "settings" ? "active" : ""}`}
               aria-label="Settings"
@@ -578,6 +586,9 @@ export default function App() {
           {page === "baseline" && (
             <>
               <div className="baseline-overview">
+                <button className="secondary-button" onClick={() => setEditingBaseline(value => !value)} aria-expanded={editingBaseline}>
+                  {editingBaseline ? "Close baseline editor" : "Edit baseline"}
+                </button>
                 <span>
                   Current net worth <b>{money(baseline[0].netWorth)}</b>
                 </span>
@@ -593,6 +604,9 @@ export default function App() {
                   {baselineChart ? "Hide projections" : "View projections"}
                 </button>
               </div>
+              {editingBaseline && <BaselineEditor profile={profile} onCancel={() => setEditingBaseline(false)} onSave={(changes, original) => {
+                ping.saveBaseline(changes, original); setEditingBaseline(false);
+              }} />}
               <div className="baseline-grid">
                 <FinancialColumn
                   title="Income"
@@ -846,12 +860,13 @@ export default function App() {
           )}
           {page === "settings" && (
             <>
+              <AccountSettings ping={ping} />
               <section className="settings-panel">
                 <h2>Profile & connections</h2>
                 <SettingRow
                   title="Financial profile"
-                  description={`${profile.name} · ${profile.location}`}
-                  value="Seeded demo"
+                  description={profile.location}
+                  value="Current baseline"
                 />
                 <SettingRow
                   title="Scenario reasoning"
@@ -894,17 +909,17 @@ export default function App() {
                 />
               </section>
               <section className="settings-panel">
-                <h2>Demo workspace</h2>
+                <h2>Workspace</h2>
                 <div className="settings-reset">
                   <div>
                     <h3>Return to the starting point</h3>
-                    <p>Restore Alex’s profile with only the main timeline.</p>
+                    <p>Restore the initial financial profile with only the main timeline.</p>
                   </div>
                   <button
                     className="secondary-button"
                     onClick={() => ping.setConfirmReset(true)}
                   >
-                    <RefreshCw size={14} /> Reset demo
+                    <RefreshCw size={14} /> Reset workspace
                   </button>
                 </div>
               </section>
@@ -948,7 +963,7 @@ export default function App() {
             {ping.confirmReset ? (
               <>
                 <p>
-                  This replaces your saved demo changes with Alex’s original
+                  This replaces your saved changes with the initial
                   financial profile and the main timeline, with no branches.
                   Your conversation and reality updates will also be cleared.
                 </p>
@@ -968,7 +983,7 @@ export default function App() {
                       setBaselineChart(false);
                     }}
                   >
-                    Reset demo
+                    Reset workspace
                   </button>
                 </div>
               </>
