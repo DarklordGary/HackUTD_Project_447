@@ -15,7 +15,7 @@
   --muted: #66745f;
   --line: #dfe5dc;
   --focus: #65885a;
-  --sidebar: 220px;
+  --sidebar: 184px;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --feedback: 150ms;
   --enter: 240ms;
@@ -255,7 +255,7 @@ details[open] > *:not(summary) {
   position: fixed;
   inset: 0 auto 0 0;
   width: var(--sidebar);
-  padding: 32px 18px 0;
+  padding: 12px 0 0;
   border-right: 1px solid var(--line);
   background: #fff;
   display: flex;
@@ -266,29 +266,32 @@ details[open] > *:not(summary) {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: fit-content;
-  padding: 0;
-  margin: 0 12px 55px;
-  border-radius: 10px;
+  width: 100%;
+  padding: 0 12px;
+  margin: 0 0 28px;
+  border-radius: 0;
 }
 .brand:hover {
   background: transparent;
 }
 .brand-mark {
-  width: 40px;
-  height: 40px;
+  width: 28px;
+  height: 28px;
   display: grid;
   place-items: center;
-  background: var(--soft);
-  border: 1px solid #dce6d5;
-  border-radius: 11px;
+  overflow: hidden;
+}
+.brand-mark img {
+  width: 20px;
+  height: 20px;
+  display: block;
 }
 .brand > span + span {
-  font-family: Manrope, sans-serif;
-  font-size: 32px;
-  font-weight: 800;
-  letter-spacing: -1.7px;
-  color: #314336;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--ink);
 }
 .brand-dot {
   color: #8cab79;
@@ -296,24 +299,24 @@ details[open] > *:not(summary) {
 nav {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
 }
 .nav-item {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 13px;
-  min-height: 50px;
-  padding: 13px 16px;
+  gap: 11px;
+  min-height: 42px;
+  padding: 10px 16px;
   font-size: 14px;
   text-align: left;
-  color: var(--muted);
-  border-radius: 10px;
+  color: #3f3f3f;
+  border-radius: 0;
 }
 .nav-item.active {
-  color: var(--primary);
-  background: var(--soft);
-  font-weight: 600;
+  color: #222;
+  background: #e7e7e7;
+  font-weight: 500;
 }
 .nav-item small {
   margin-left: auto;
@@ -393,11 +396,12 @@ nav {
 .main-shell {
   margin-left: var(--sidebar);
   min-height: 100vh;
+  background: var(--canvas);
 }
 .workspace-content {
-  max-width: 1500px;
+  max-width: none;
   margin: 0 auto;
-  padding: 42px 42px 230px;
+  padding: 18px 18px 120px;
   min-height: 100vh;
   animation: page-in var(--enter) var(--ease);
   outline: none;
@@ -437,7 +441,7 @@ nav {
   align-items: center;
   justify-content: space-between;
   gap: 28px;
-  margin-bottom: 38px;
+  margin-bottom: 24px;
 }
 .graph-toolbar p {
   font-size: 15px;
@@ -2368,10 +2372,10 @@ nav {
 }
 @media (min-width: 1600px) {
   :root {
-    --sidebar: 240px;
+    --sidebar: 184px;
   }
   .workspace-content {
-    padding: 52px 56px 230px;
+    padding: 18px 24px 120px;
   }
   .graph-toolbar {
     margin-bottom: 44px;
@@ -2398,21 +2402,20 @@ nav {
 }
 @media (max-width: 1200px) {
   :root {
-    --sidebar: 200px;
+    --sidebar: 184px;
   }
   .sidebar {
-    padding: 28px 14px 0;
+    padding: 12px 0 0;
   }
   .brand {
-    margin-left: 9px;
-    margin-bottom: 42px;
+    margin: 0 0 28px;
   }
   .nav-item {
     font-size: 13px;
     padding: 12px 14px;
   }
   .workspace-content {
-    padding: 34px 30px 230px;
+    padding: 18px 18px 120px;
   }
   h1 {
     font-size: 28px;
@@ -2518,18 +2521,18 @@ nav {
     --sidebar: 180px;
   }
   .sidebar {
-    padding: 26px 12px 0;
+    padding: 12px 0 0;
   }
   .brand {
-    gap: 7px;
-    margin-left: 8px;
+    gap: 10px;
+    margin: 0 0 28px;
   }
   .brand > span + span {
-    font-size: 29px;
+    font-size: 16px;
   }
   .brand-mark {
-    height: 36px;
-    width: 36px;
+    height: 28px;
+    width: 28px;
   }
   .nav-item {
     font-size: 12px;
@@ -2553,7 +2556,7 @@ nav {
     padding: 10px 8px;
   }
   .workspace-content {
-    padding: 30px 26px 230px;
+    padding: 18px 18px 120px;
   }
   .graph-toolbar {
     flex-wrap: wrap;

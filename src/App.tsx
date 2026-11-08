@@ -203,11 +203,9 @@ export default function App() {
           aria-label="Ping home"
         >
           <span className="brand-mark">
-            <Parrot size={35} />
+            <img src="/ping.svg" alt="" />
           </span>
-          <span>
-            ping<span className="brand-dot">.</span>
-          </span>
+          <span>Ping</span>
         </button>
         <nav aria-label="Main navigation">
           <button
@@ -281,10 +279,7 @@ export default function App() {
           {page === "timelines" && !universe && (
             <section className="canvas-panel">
               <div className="graph-toolbar">
-                <div>
-                  <h1>Your financial multiverse</h1>
-                  <p>One starting point. A little room for what’s next.</p>
-                </div>
+                <h1 className="sr-only">Your financial multiverse</h1>
                 <div className="toolbar-actions">
                   <button
                     className="secondary-button compare-action"
@@ -817,13 +812,9 @@ export default function App() {
           {page === "compare" && (
             <>
               <div className="page-heading">
-                <div>
-                  <button className="back-button" onClick={showTimelines}>
-                    <ArrowLeft size={14} /> All timelines
-                  </button>
-                  <h1>Compare paths</h1>
-                  <p>The same starting point. A different way forward.</p>
-                </div>
+                <button className="back-button" onClick={showTimelines}>
+                  <ArrowLeft size={14} /> All timelines
+                </button>
                 <MetricControls metric={metric} onChange={setMetric} />
               </div>
               <div className="compare-picker">
@@ -949,13 +940,6 @@ export default function App() {
           )}
           {page === "settings" && (
             <>
-              <div className="page-heading">
-                <div>
-                  <span className="eyebrow">YOUR WORKSPACE</span>
-                  <h1>Settings</h1>
-                  <p>A little context for your financial multiverse.</p>
-                </div>
-              </div>
               <section className="settings-panel">
                 <h2>Profile & connections</h2>
                 <SettingRow
@@ -1622,11 +1606,6 @@ function Updates({
   return (
     <>
       <div className="page-heading">
-        <div>
-          <span className="eyebrow">WHEN REALITY MEETS POSSIBILITY</span>
-          <h1>Reality updates</h1>
-          <p>The ripple effect of a change in your real life.</p>
-        </div>
         <button
           className="secondary-button"
           onClick={() =>
